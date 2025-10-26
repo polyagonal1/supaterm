@@ -8,31 +8,25 @@ mod print {
     pub struct Print<T: fmt::Display>(pub T);
 
     impl<T: fmt::Display> Command for Print<T> {
-        type Output = ();
-        
-        type ResetOutput = ();
 
-        fn queue(&self, target: &mut impl io::Write) -> io::Result<Self::Output> {
+        fn queue(&self, target: &mut impl io::Write) -> io::Result<()> {
             write!(target, "{}\r\n", self.0)
         }
         
-        fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<Self::ResetOutput>> {
+        fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<()>> {
             None
         }
     }
 
     impl<T: fmt::Display, const N: usize> Command for [Print<T>; N] {
-        type Output = ();
-        
-        type ResetOutput = ();
     
-        fn queue(&self, target: &mut impl io::Write) -> io::Result<Self::Output> {
+        fn queue(&self, target: &mut impl io::Write) -> io::Result<()> {
             self.iter().try_for_each(|print_cmd| {
                 write!(target, "{}", print_cmd.0)
             })
         }
         
-        fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<Self::ResetOutput>> {
+        fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<()>> {
             None
         }
     }

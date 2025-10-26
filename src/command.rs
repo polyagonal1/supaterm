@@ -2,15 +2,10 @@ use std::io;
 
 pub trait Command {
 
-    /// The type that is returned from `write_ansi()` on success
-    type Output;
-    
-    type ResetOutput;
-
     /// Attempts to write a (sequence of) ANSI escape code(s) onto `target`
     ///
     /// `term_state` must be modified in a way that matches what gets written onto `target`
-    fn queue(&self, target: &mut impl io::Write) -> io::Result<Self::Output>;
+    fn queue(&self, target: &mut impl io::Write) -> io::Result<()>;
     
     /// Resets what `write_ansi()` would do for the terminal to go back to normal.
     /// 
@@ -22,5 +17,5 @@ pub trait Command {
     /// # Examples
     /// ```rust
     /// ```
-    fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<Self::ResetOutput>>;
+    fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<()>>;
 }

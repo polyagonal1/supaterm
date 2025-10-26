@@ -4,6 +4,7 @@ use rustix::{termios, stdio, io::Errno};
 use crate::{
     termios::termios_mostly_equal,
     command::Command,
+    macros::{impl_display, impl_command},
 };
 
 pub enum SetAttrsError {
@@ -32,11 +33,10 @@ impl<I: io::Read, O: io::Write> Drop for Terminal<I, O> {
 
         let stdin_fd = stdio::stdin();
 
+        let _ = termios::tcdrain(stdin_fd);
         let _ = termios::tcflush(stdin_fd, termios::QueueSelector::IOFlush);
 
         let _ = termios::tcsetattr(stdin_fd, termios::OptionalActions::Now, &self.original_termios);
-
-
     }
 }
 
@@ -87,12 +87,12 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
     }
 
     /// Queue a command to be written to the terminal
-    pub fn queue<C: crate::command::Command>(&mut self, command: C) -> io::Result<C::Output> {
+    pub fn queue<C: crate::command::Command>(&mut self, command: C) -> io::Result<()> {
         command.queue(&mut self.stdout)
     }
 
     /// Calls the `reset()` function on `command`, passing a mutable reference to `self.stdout` to it
-    pub fn reset_cmd<C: crate::command::Command>(&mut self, command: C) -> Option<io::Result<C::ResetOutput>> {
+    pub fn reset_cmd<C: crate::command::Command>(&mut self, command: C) -> Option<io::Result<()>> {
         command.reset(&mut self.stdout)
     }
     
@@ -159,17 +159,27 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
     }
 }
 
+/// Fires the terminal bell. Usually produces a sound or flashes the title bar to indicate an error.
+///
+/// More information about the terminal bell can be found [here][more-info]
+///
+/// [more-info]: https://rosettacode.org/wiki/Terminal_control/Ringing_the_terminal_bell
+pub struct TerminalBell;
+
+impl_command!(b"\x07", TerminalBell);
+impl_display!("\x07", TerminalBell);
+
 // pub struct EnterAlternateScreen;
 
 // impl crate::Command for EnterAlternateScreen {
-//
+// 
 //     type Output = ();
 //     type ResetOutput = ();
-//
+// 
 //     fn queue(&self, target: &mut impl io::Write) -> io::Result<Self::Output> {
-//
+// 
 //     }
-//
+// 
 //     fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<Self::ResetOutput>> {
 //         None
 //     }
