@@ -1,6 +1,6 @@
 use rustix::{termios};
 
-use termios::{Termios, OptionalActions};
+pub use termios::{Termios, OptionalActions};
 
 pub fn termios_mostly_equal(a: &Termios, b: &Termios) -> bool {
     a.input_modes == b.input_modes

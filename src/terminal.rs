@@ -1,10 +1,17 @@
-use std::{fmt, io};
+use std::{
+    io,
+    fmt,
+};
 
-use rustix::{termios, stdio, io::Errno};
+use rustix::{
+    termios,
+    stdio,
+    io::Errno
+};
+
 use crate::{
     termios::termios_mostly_equal,
-    command::Command,
-    macros::{impl_display, impl_command},
+    command::{Command},
 };
 
 pub enum SetAttrsError {
@@ -26,15 +33,21 @@ pub struct Terminal<I: io::Read, O: io::Write> {
     stdin: I,
     stdout: O,
     original_termios: termios::Termios,
+    pub commands_to_reset: Vec<Box<dyn Command>>,
 }
 
 impl<I: io::Read, O: io::Write> Drop for Terminal<I, O> {
     fn drop(&mut self) {
 
+        for cmd in self.commands_to_reset.iter() {
+            let _ = cmd.queue(&mut self.stdout);
+        }
+
+        let _ = self.stdout.flush();
+
         let stdin_fd = stdio::stdin();
 
         let _ = termios::tcdrain(stdin_fd);
-        let _ = termios::tcflush(stdin_fd, termios::QueueSelector::IOFlush);
 
         let _ = termios::tcsetattr(stdin_fd, termios::OptionalActions::Now, &self.original_termios);
     }
@@ -67,6 +80,7 @@ impl<'a> Terminal<io::StdinLock<'a>, io::StdoutLock<'a>> {
             stdin: io::stdin().lock(),
             stdout: io::stdout().lock(),
             original_termios: termios::tcgetattr(stdin_fd)?,
+            commands_to_reset: Vec::new(),
         })
     }
 }
@@ -83,17 +97,45 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
             stdin,
             stdout,
             original_termios: termios::tcgetattr(stdin_fd)?,
+            commands_to_reset: Vec::new(),
         })
     }
 
     /// Queue a command to be written to the terminal
-    pub fn queue<C: crate::command::Command>(&mut self, command: C) -> io::Result<()> {
+    pub fn queue<C: Command>(&mut self, command: C) -> io::Result<()> {
+        if let Some(reset_cmd) = command.reset_cmd() {
+
+            self.commands_to_reset.push(reset_cmd);
+        }
+
         command.queue(&mut self.stdout)
     }
+    pub fn queue_all<const N: usize>(&mut self, commands: [&dyn Command; N]) -> io::Result<()> {
 
-    /// Calls the `reset()` function on `command`, passing a mutable reference to `self.stdout` to it
-    pub fn reset_cmd<C: crate::command::Command>(&mut self, command: C) -> Option<io::Result<()>> {
-        command.reset(&mut self.stdout)
+        let mut size: usize = 0;
+
+        commands
+            .iter()
+            .for_each(|cmd| {
+                size += cmd.size_hint().unwrap_or(64)
+            });
+
+        let mut bytes = Vec::with_capacity(size);
+
+        commands
+            .iter()
+            .try_for_each(|cmd| {
+                cmd.queue(&mut bytes)?;
+
+                if let Some(reset_cmd) = cmd.reset_cmd() {
+                    self.commands_to_reset.push(reset_cmd);
+                }
+
+                Ok::<(), io::Error>(())
+            })?;
+
+        Ok(self.stdout.write_all(&bytes)?)
+
     }
     
     /// Sets the terminal's attributes to raw mode.
@@ -166,21 +208,76 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
 /// [more-info]: https://rosettacode.org/wiki/Terminal_control/Ringing_the_terminal_bell
 pub struct TerminalBell;
 
-impl_command!(b"\x07", TerminalBell);
-impl_display!("\x07", TerminalBell);
+impl Command for TerminalBell {
+    fn queue(&self, target: &mut dyn io::Write) -> io::Result<()> {
 
-// pub struct EnterAlternateScreen;
+        target.write_all(b"\x07")
+    }
 
-// impl crate::Command for EnterAlternateScreen {
-// 
-//     type Output = ();
-//     type ResetOutput = ();
-// 
-//     fn queue(&self, target: &mut impl io::Write) -> io::Result<Self::Output> {
-// 
-//     }
-// 
-//     fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<Self::ResetOutput>> {
-//         None
-//     }
-// }
+    fn size_hint(&self) -> Option<usize> {
+        Some(1)
+    }
+
+    fn reset_cmd(&self) -> Option<Box<dyn Command>> {
+        None
+    }
+}
+
+impl fmt::Display for TerminalBell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("\x07")
+    }
+}
+
+/// Enables the alternate terminal buffer
+///
+/// When activated, the terminal will hide the contents of the main screen and show the alternate
+/// screen. When deactivated, the terminal will clear the contents of the alternate screen and switch
+/// back to the main screen
+///
+/// This struct implements `Command::reset_cmd()`, so when `Drop` on `self` is called, the alternate
+/// screen will be exited
+pub struct EnterAlternateScreen;
+impl Command for EnterAlternateScreen {
+
+    fn queue(&self, target: &mut dyn io::Write) -> io::Result<()> {
+        target.write_all(b"\x1b[?1049h")
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(8)
+    }
+
+    fn reset_cmd(&self) -> Option<Box<dyn Command>> {
+        Some(Box::new(LeaveAlternateScreen))
+    }
+}
+
+impl fmt::Display for EnterAlternateScreen {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("\x1b[?1049h")
+    }
+}
+
+pub struct LeaveAlternateScreen;
+
+impl Command for LeaveAlternateScreen {
+
+    fn queue(&self, target: &mut dyn io::Write) -> io::Result<()> {
+        target.write_all(b"\x1b[?1049l")
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(8)
+    }
+
+    fn reset_cmd(&self) -> Option<Box<dyn Command>> {
+        None
+    }
+}
+
+impl fmt::Display for LeaveAlternateScreen {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("\x1b[?1049l")
+    }
+}

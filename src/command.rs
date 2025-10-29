@@ -2,20 +2,50 @@ use std::io;
 
 pub trait Command {
 
-    /// Attempts to write a (sequence of) ANSI escape code(s) onto `target`
+    /// Writes the command onto `target`
+    fn queue(&self, target: &mut dyn io::Write) -> io::Result<()>;
+
+    /// Returns an optional hint about the size of how much will be written to `target` in the
+    /// `queue()` method for optimisation purposes.
     ///
-    /// `term_state` must be modified in a way that matches what gets written onto `target`
-    fn queue(&self, target: &mut impl io::Write) -> io::Result<()>;
-    
-    /// Resets what `write_ansi()` would do for the terminal to go back to normal.
-    /// 
-    /// It is not an 'undo' button. It does not 'undo' what `write_ansi()` does, just makes it so
-    /// that it was as if (for all future writes to the terminal) `write_ansi()` was never called.
-    /// 
-    /// Should return `None` if resetting the command is not possible or is unapplicable
-    /// 
-    /// # Examples
-    /// ```rust
-    /// ```
-    fn reset(&self, target: &mut impl io::Write) -> Option<io::Result<()>>;
+    /// If this returns `None`, the size will be assumed to be 64 bytes
+    fn size_hint(&self) -> Option<usize>;
+
+    /// Returns the command that would reset this command.
+    ///
+    /// This does not 'undo' the command; but makes it that it was as if this command hadn't been
+    /// called at all (so in some cases it would act like an 'undo', but that isn't it's sole
+    /// purpose).
+    ///
+    /// Returns `None` when resetting the command is impossible or inapplicable or when calling this
+    /// command with `queue()` resets (a part of) the terminal back to how it started.
+    fn reset_cmd(&self) -> Option<Box<dyn Command>>;
+}
+
+impl<T: Command> Command for &T {
+    fn queue(&self, target: &mut dyn io::Write) -> io::Result<()> {
+        (*self).queue(target)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        (*self).size_hint()
+    }
+
+    fn reset_cmd(&self) -> Option<Box<dyn Command>> {
+        (*self).reset_cmd()
+    }
+}
+
+impl<T: Command> Command for Box<T> {
+    fn queue(&self, target: &mut dyn io::Write) -> io::Result<()> {
+        (**self).queue(target)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        (**self).size_hint()
+    }
+
+    fn reset_cmd(&self) -> Option<Box<dyn Command>> {
+        (**self).reset_cmd()
+    }
 }
