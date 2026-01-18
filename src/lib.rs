@@ -1,19 +1,25 @@
 use std::io;
+use terminfo::Database;
+use terminfo::expand::Context;
 
 pub mod command;
 pub mod style;
+
+mod define_macro;
 
 pub use {
     command::Command,
     terminfo
 };
 
+pub(crate) use define_macro::*;
+
 /// A wrapper around a reader and writer that allows queueing of commands
 pub struct Terminal<I: io::Read, O: io::Write> {
     reader: I,
     writer: O,
-    info: terminfo::Database,
-    terminfo_ctx: terminfo::expand::Context,
+    info: Database,
+    terminfo_ctx: Context,
 }
 
 impl<'a, 'b> Default for Terminal<io::StdinLock<'a>, io::StdoutLock<'b>> {
@@ -53,7 +59,7 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
                     terminfo::Error::Parse => return Err(io::Error::new(io::ErrorKind::InvalidData, "error parsing the data in the database, although, I didn't think any parsing would happen during database creation."))
                 },
             },
-            terminfo_ctx: terminfo::expand::Context::default()
+            terminfo_ctx: Context::default()
         })
     }
 
@@ -63,6 +69,8 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
             self.writer,
         )
     }
+
+    // pub fn is_cmd_supported
 
     pub fn queue(&mut self, command: impl Command) -> io::Result<()> {
         command.write_to(&self.info, &mut self.terminfo_ctx, &mut self.writer)
@@ -77,99 +85,3 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
         Ok(())
     }
 }
-
-macro_rules! define {
-    (default-no-args
-        $(#[$attrs:meta])*
-        definition: $visible:vis struct $typ:ident,
-        capability: $capability:ty,
-        size_hint: $size:expr,
-        unsupported_msg: $unsupported_msg:literal $(,)?
-        $(--add-command-implementation-errors-docs $($placeholder:tt)? )?
-    ) => {
-        define!(custom-impl
-            $(#[$attrs])*
-            definition: $visible struct $typ,
-            capability: $capability,
-            size_hint: $size,
-            unsupported_msg: $unsupported_msg,
-            implementation: |&self, _database, capability, ctx, target| {
-
-                match capability.expand().with(ctx).to(target) {
-                    // writing to `target` was successful
-                    Ok(_) => (),
-                    // writing to `target` was unsuccessful
-                    Err(error) => return match error {
-                        ::terminfo::Error::Parse => Err(::std::io::Error::new(
-                            ::std::io::ErrorKind::InvalidData,
-                            error
-                        )),
-                        ::terminfo::Error::NotFound => Err(::std::io::Error::new(
-                            ::std::io::ErrorKind::NotFound,
-                            error
-                        )),
-                        ::terminfo::Error::Expand(_) => Err(::std::io::Error::new(
-                            ::std::io::ErrorKind::Other,
-                            error
-                        )),
-                        ::terminfo::Error::Io(io_error) => Err(io_error)
-                    }
-                }
-            }
-            $(--add-command-implementation-errors-docs $($placeholder)?)?
-        );
-    };
-    (custom-impl
-        $(#[$attrs:meta])*
-        definition: $visible:vis struct $typ:ident $(( $( $args:tt  )+ ))?,
-        capability: $capability:ty,
-        size_hint: $size_hint:expr,
-        unsupported_msg: $unsupported_msg:literal,
-        implementation: |&$self_var_name:ident, $database_var_name:ident, $cap_var_name:ident, $ctx_var_name:ident, $target_var_name:ident $(,)?| $implementation:block $(,)?
-        $(--add-command-implementation-errors-docs $($placeholder:tt)? )?
-    ) => {
-
-        $(#[$attrs])*
-        #[doc = concat!(
-            $($($placeholder)?
-                "# `Command` implementation errors\n",
-                "Returns:\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `Unsupported` when the terminal does not support this command\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `InvalidData` when there was an error parsing the terminfo library\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `NotFound` when the terminfo entry for this terminal was not found\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `Other` when there was an error expanding a parameterised terminfo capability.\n",
-                "May also return any other `io::Error`",
-            )?
-        )]
-        #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-        $visible struct $typ $(( $($args)+ ))?;
-
-        impl crate::Command for $typ {
-            fn size_hint(&self) -> Option<usize> {
-                $size_hint
-            }
-
-            fn write_to(
-                $self_var_name: &Self,
-                $database_var_name: &::terminfo::Database,
-                #[allow(unused)] $ctx_var_name: &mut ::terminfo::expand::Context,
-                #[allow(unused)] $target_var_name: &mut dyn ::std::io::Write
-            ) -> ::std::io::Result<()> {
-                match $database_var_name.get::<$capability>() {
-                    // this command is supported
-                    Some($cap_var_name) => $implementation,
-                    // this command is unsupported
-                    None => return Err(::std::io::Error::new(
-                        ::std::io::ErrorKind::Unsupported,
-                        $unsupported_msg
-                    ))
-                }
-                Ok(())
-            }
-        }
-    };
-}
-
-pub(crate) use {
-    define,
-};
