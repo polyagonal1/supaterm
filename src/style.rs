@@ -10,6 +10,17 @@ use {
     terminfo::{capability as cap, Database},
 };
 
+pub struct Colors;
+
+impl Capability for Colors {
+    fn is_supported(&self, database: &Database) -> bool {
+        match database.get::<cap::MaxColors>() {
+            Some(cap) => cap.0 > 0,
+            None => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Writeln<'a>(pub &'a [u8]);
 
