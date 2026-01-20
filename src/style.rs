@@ -1,7 +1,8 @@
 use {
     crate::{
         define,
-        Command
+        Command,
+        Capability
     },
 
     std::io,
@@ -28,6 +29,12 @@ impl<'a> Command for Writeln<'a> {
     }
 }
 
+impl<'a> Capability for Writeln<'a> {
+    fn is_supported(&self, _: &Database) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Write<'a>(pub &'a [u8]);
 
@@ -46,6 +53,12 @@ impl<'a> Command for Write<'a> {
         target.write_all(self.0)?;
 
         Ok(())
+    }
+}
+
+impl<'a> Capability for Write<'a> {
+    fn is_supported(&self, _: &Database) -> bool {
+        true
     }
 }
 
@@ -173,7 +186,7 @@ define!(custom-impl
     capability: cap::SetAForeground,
     size_hint: Some(16),
     unsupported_msg: "Setting the foreground color separately to the background color and/or setting any colours is unsupported in this terminal",
-    implementation: |&self, database, capability, ctx, target| {
+    write_to_impl: |self, database, capability, ctx, target| {
 
         // how many colors are supported and is assumed to be the maximum color value you can have
         let colors = database.get::<cap::MaxColors>()
@@ -207,6 +220,17 @@ define!(custom-impl
             ))
         }
     },
+    is_supported_impl: |self, database, capability| {
+        // how many colors are supported and is assumed to be the maximum color value you can have
+        let colors = match database.get::<cap::MaxColors>() {
+            Some(max_colors) => max_colors.0,
+            None => return false,
+        };
+
+        let requested_color = self.0.as_u8();
+
+        (0..colors).contains(&(requested_color as i32))
+    }
 );
 
 define!(custom-impl
@@ -214,7 +238,7 @@ define!(custom-impl
     capability: cap::SetABackground,
     size_hint: Some(16),
     unsupported_msg: "Setting the background color separately to the foreground color and/or setting any colours is unsupported in this terminal",
-    implementation: |&self, database, capability, ctx, target| {
+    write_to_impl: |self, database, capability, ctx, target| {
 
         // how many colors are supported and is assumed to be the maximum color value you can have
         let colors = database.get::<cap::MaxColors>()
@@ -247,6 +271,20 @@ define!(custom-impl
                 format!("The terminal only supports {colors} colors which is less than the requested color: {:?}", self.0).as_str()
             ))
         }
+    },
+    // if your IDE reports the error "Missing lifetime specifier" here when you explicitly set the type, it is wrong
+    // and is a limitation of rust-analyzer. If you compile the code directly with cargo or rustc, you won't get this
+    // error.
+    is_supported_impl: |self, database, capability: cap::SetABackground| {
+        // how many colors are supported and is assumed to be the maximum color value you can have
+        let colors = match database.get::<cap::MaxColors>() {
+            Some(max_colors) => max_colors.0,
+            None => return false,
+        };
+
+        let requested_color = self.0.as_u8();
+
+        (0..colors).contains(&(requested_color as i32))
     }
 );
 

@@ -1,11 +1,9 @@
-use {
-    supaterm::{
-        style,
-        self as st
-    },
-    
-    std::io::{self, Write as _},
+use supaterm::{
+    style::{SetForegroundColor, Color, ResetStyle, Colors},
+    self as st
 };
+    
+use std::io::{self, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     
@@ -13,6 +11,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         io::stdin().lock(),
         io::stdout().lock()
     )?;
+
+    if !term.is_capability_supported(Colors) {
+        term.write_all(b"Colors aren't supported?! What age is this terminal from?")?;
+        return Ok(())
+    }
+
+    // the standard colors are almost always going to be supported if colors are supported at all
+    term.queue(SetForegroundColor(Color::Red))?;
+    term.write_all(b"This text is red.")?;
     
     for i in 0..=255u8 {
 
@@ -29,11 +36,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             term.write_all(b"\nGreyscale in 24 steps\n")?;
         }
 
-        term.queue(style::SetForegroundColor(style::Color::ColorById(i)))?;
+        match term.is_capability_supported(SetForegroundColor(Color::ColorById(i))) {
+            true => term.queue(SetForegroundColor(Color::ColorById(i)))?,
+            false => {
+                write!(term, "The terminal does not support colors with an id higher than {}", i-1)?;
+                break;
+            }
+        }
+
 
         write!(term, "{i:<4}")?;
 
-        term.queue(style::ResetStyle)?;
+        term.queue(ResetStyle)?;
 
         if i == 51 || i == 87 || i == 123 || i == 159 || i == 195 {
             term.write_all(b"\n")?;

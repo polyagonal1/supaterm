@@ -8,7 +8,7 @@ pub mod style;
 mod define_macro;
 
 pub use {
-    command::Command,
+    command::{Command, Capability},
     terminfo
 };
 

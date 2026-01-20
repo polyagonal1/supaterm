@@ -77,7 +77,7 @@ macro_rules! define {
         #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
         $visible struct $typ $(( $($args)+ ))?;
 
-        impl crate::Command for $typ {
+        impl $crate::Command for $typ {
             fn size_hint(&self) -> Option<usize> {
                 $size_hint
             }
@@ -99,7 +99,9 @@ macro_rules! define {
                 }
                 Ok(())
             }
-
+        }
+        
+        impl $crate::Capability for $typ {
             fn is_supported(
                 $is_supported_self_var_name: $crate::__fill_type!($($is_supported_self_var_ty)?, &Self),
                 $is_supported_database_var_name: $crate::__fill_type!($($is_supported_database_var_ty)?, &::terminfo::Database),
