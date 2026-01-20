@@ -1,6 +1,5 @@
 use std::io;
-use terminfo::Database;
-use terminfo::expand::Context;
+use terminfo::{Database, expand::Context};
 
 pub mod command;
 pub mod style;
@@ -50,7 +49,7 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
         Ok(Self {
             reader,
             writer,
-            info: match terminfo::Database::from_env() {
+            info: match Database::from_env() {
                 Ok(info) => info,
                 Err(error) => match error {
                     terminfo::Error::Io(io_err) => return Err(io_err),
