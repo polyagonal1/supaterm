@@ -3,6 +3,7 @@ use terminfo::{Database, expand::Context};
 
 pub mod command;
 pub mod style;
+pub mod misc;
 
 mod define_macro;
 

@@ -22,7 +22,7 @@ macro_rules! define {
             capability: $capability,
             size_hint: $size,
             unsupported_msg: $unsupported_msg,
-            write_to_impl: |self, _database, capability, ctx, target| {
+            write_to_impl: |self, database, capability, ctx, target| {
 
                 match capability.expand().with(ctx).to(target) {
                     // writing to `target` was successful
