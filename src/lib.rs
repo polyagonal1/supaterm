@@ -44,6 +44,7 @@ impl<I: io::Read, O: io::Write> io::Read for Terminal<I, O> {
 }
 
 impl<I: io::Read, O: io::Write> Terminal<I, O> {
+    /// Creates a new `Terminal` instance which can be used to queue commands
     #[inline]
     pub fn new(reader: I, writer: O) -> Result<Self, io::Error> {
         Ok(Self {
@@ -61,16 +62,39 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
             terminfo_ctx: Context::default()
         })
     }
-
+    
+    /// Consumes `self` and returns the reader and writer used under the hood
     pub fn into_inner(self) -> (I, O) {
         (
             self.reader,
             self.writer,
         )
     }
-
-    // pub fn is_cmd_supported
-
+    
+    /// Checks if some command `cmd` is supported and can be used on this terminal
+    pub fn is_capability_supported(&self, cmd: impl Capability) -> bool {
+        cmd.is_supported(&self.info)
+    }
+    
+    /// Queues a command if it is supported (if `cmd.is_supported()` returns true)
+    /// 
+    /// If this function returns `None`, the command is unsupported and did not queue any commands
+    /// If this function returns `Some(r)`, the command was supported and the command was queued and 
+    /// the result has been returned
+    /// 
+    /// This is the same as checking `term.is_cmd_supported(cmd)`, then `queue()`ing the command 
+    /// based on that.
+    pub fn queue_if_supported(&mut self, cmd: impl Command) -> Option<io::Result<()>> {
+        match cmd.is_supported(&self.info) {
+            true => Some(cmd.write_to(&self.info, &mut self.terminfo_ctx, &mut self.writer)),
+            false => None,
+        }
+    }
+    
+    /// Queues a command for execution
+    /// 
+    /// This function may not immediately execute the command. Call `flush()` after to execute all 
+    /// queued commands
     pub fn queue(&mut self, command: impl Command) -> io::Result<()> {
         command.write_to(&self.info, &mut self.terminfo_ctx, &mut self.writer)
     }
