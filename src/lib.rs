@@ -16,19 +16,22 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+use std::env;
+use std::fs;
 use std::io;
-use terminfo::{Database, expand::Context};
 
 pub mod command;
-pub mod style;
 pub mod misc;
+pub mod style;
 
 mod define_macro;
 
 pub use {
-    command::{Command, Capability},
-    terminfo
+    command::{Capability, Command},
+    infoterm,
 };
+
+use infoterm::{entry::Entry, search::Search};
 
 pub(crate) use define_macro::*;
 
@@ -36,8 +39,7 @@ pub(crate) use define_macro::*;
 pub struct Terminal<I: io::Read, O: io::Write> {
     reader: I,
     writer: O,
-    info: Database,
-    terminfo_ctx: Context,
+    info: Entry,
 }
 
 impl<'a, 'b> Default for Terminal<io::StdinLock<'a>, io::StdoutLock<'b>> {
@@ -65,63 +67,71 @@ impl<I: io::Read, O: io::Write> io::Read for Terminal<I, O> {
 impl<I: io::Read, O: io::Write> Terminal<I, O> {
     /// Creates a new `Terminal` instance which can be used to queue commands
     #[inline]
-    pub fn new(reader: I, writer: O) -> Result<Self, io::Error> {
+    pub fn new(reader: I, writer: O) -> io::Result<Self> {
         Ok(Self {
             reader,
             writer,
-            info: match Database::from_env() {
-                Ok(info) => info,
-                Err(error) => match error {
-                    terminfo::Error::Io(io_err) => return Err(io_err),
-                    terminfo::Error::Expand(_) => panic!("there should not be an expansion error when creating a database, right?"),
-                    terminfo::Error::NotFound => panic!("if the database is not found, then this device is probably (currently) unsupported"),
-                    terminfo::Error::Parse => return Err(io::Error::new(io::ErrorKind::InvalidData, "error parsing the data in the database, although, I didn't think any parsing would happen during database creation."))
-                },
+            info: {
+                let searcher = Search::standard();
+
+                let entry_name = match env::var("TERM") {
+                    Ok(entry_name) => entry_name,
+                    Err(error) => match error {
+                        env::VarError::NotUnicode(_) => {
+                            return Err(io::ErrorKind::InvalidData.into());
+                        }
+                        env::VarError::NotPresent => return Err(io::ErrorKind::NotFound.into()),
+                    },
+                };
+
+                let path = searcher
+                    .find(entry_name)
+                    .ok_or::<io::Error>(io::ErrorKind::NotFound.into())?;
+
+                match Entry::parse(fs::read(path)?.as_slice()) {
+                    Ok(entry) => entry,
+                    Err(_) => return Err(io::ErrorKind::InvalidData.into()),
+                }
             },
-            terminfo_ctx: Context::default()
         })
     }
-    
+
     /// Consumes `self` and returns the reader and writer used under the hood
     pub fn into_inner(self) -> (I, O) {
-        (
-            self.reader,
-            self.writer,
-        )
+        (self.reader, self.writer)
     }
-    
+
     /// Checks if some command `cmd` is supported and can be used on this terminal
-    pub fn is_capability_supported(&self, cmd: impl Capability) -> bool {
+    pub fn is_capability_supported<C: Capability>(&self, cmd: C) -> C::IsSupportedType {
         cmd.is_supported(&self.info)
     }
-    
+
     /// Queues a command if it is supported (if `cmd.is_supported()` returns true)
-    /// 
+    ///
     /// If this function returns `None`, the command is unsupported and did not queue any commands
-    /// If this function returns `Some(r)`, the command was supported and the command was queued and 
+    /// If this function returns `Some(r)`, the command was supported and the command was queued and
     /// the result has been returned
-    /// 
-    /// This is the same as checking `term.is_cmd_supported(cmd)`, then `queue()`ing the command 
+    ///
+    /// This is the same as checking `term.is_cmd_supported(cmd)`, then `queue()`ing the command
     /// based on that.
     pub fn queue_if_supported(&mut self, cmd: impl Command) -> Option<io::Result<()>> {
         match cmd.is_supported(&self.info) {
-            true => Some(cmd.write_to(&self.info, &mut self.terminfo_ctx, &mut self.writer)),
+            true => Some(cmd.write_to(&self.info, &mut self.writer)),
             false => None,
         }
     }
-    
+
     /// Queues a command for execution
-    /// 
-    /// This function may not immediately execute the command. Call `flush()` after to execute all 
+    ///
+    /// This function may not immediately execute the command. Call `flush()` after to execute all
     /// queued commands
     pub fn queue(&mut self, command: impl Command) -> io::Result<()> {
-        command.write_to(&self.info, &mut self.terminfo_ctx, &mut self.writer)
+        command.write_to(&self.info, &mut self.writer)
     }
 
     pub fn queue_all<const N: usize>(&mut self, commands: [&dyn Command; N]) -> io::Result<()> {
-
         for cmd in commands {
-            cmd.write_to(&self.info, &mut self.terminfo_ctx, &mut self.writer, )?;
+            cmd.write_to(&self.info, &mut self.writer)?;
         }
 
         Ok(())

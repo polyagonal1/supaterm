@@ -17,36 +17,51 @@
 */
 
 use supaterm::{
-    style::{SetForegroundColor, Color, ResetStyle, Colors},
-    self as st
+    self as st,
+    style::{
+        Color, Colors, StandardColor, BrightColor,
+        ResetStyle, SetForegroundColor, SetBackgroundColor
+    },
 };
-    
+
 use std::io::{self, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut term = st::Terminal::new(io::stdin().lock(), io::stdout().lock())?;
     
-    let mut term = st::Terminal::new(
-        io::stdin().lock(),
-        io::stdout().lock()
-    )?;
-
-    if !term.is_capability_supported(Colors) {
+    // standard colors
+    
+    if !term.is_capability_supported(Colors::Standard) {
         term.write_all(b"Colors aren't supported?! What age is this terminal from?")?;
+        return Ok(());
+    }
+    
+    term.queue(SetForegroundColor(Color::Standard(StandardColor::Red)))?;
+    term.write_all(b"This text is red.\n")?;
+    
+    term.queue(ResetStyle)?;
+    term.write_all(b"This text is not red.\n")?;
+    
+    // bright colors
+    
+    if !term.is_capability_supported(Colors::Bright) {
+        term.write_all(b"Bright colors are not supported. How unfortunate.")?;
+        return Ok(())
+    }
+    
+    term.queue(SetBackgroundColor(Color::Bright(BrightColor::BrightYellow)))?;
+    term.write_all(b"This text is bright yellow")?;
+    term.queue(ResetStyle)?;
+    
+    // 256-color mode
+    
+    if !term.is_capability_supported(Colors::From256ColorPalette) {
+        term.write_all(b"256 color mode is unsupported. I guess not every terminal is perfect")?;
         return Ok(())
     }
 
-    // the standard colors are almost always going to be supported if colors are supported at all
-    term.queue(SetForegroundColor(Color::Red))?;
-    term.write_all(b"This text is red.")?;
     
-    for i in 0..=255u8 {
-
-        if i == 0 {
-            term.write_all(b"\nStandard colors\n")?;
-        }
-        if i == 8 {
-            term.write_all(b"\nStandard bright colors\n")?;
-        }
+    for i in 16..=255u8 {
         if i == 16 {
             term.write_all(b"\n6x6x6 color cube\n")?;
         }
@@ -54,25 +69,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             term.write_all(b"\nGreyscale in 24 steps\n")?;
         }
 
-        match term.is_capability_supported(SetForegroundColor(Color::ColorById(i))) {
-            true => term.queue(SetForegroundColor(Color::ColorById(i)))?,
-            false => {
-                write!(term, "The terminal does not support colors with an id higher than {}", i-1)?;
-                break;
-            }
-        }
-
+        term.queue(SetForegroundColor(Color::From256ColorPalette(i)))?;
 
         write!(term, "{i:<4}")?;
 
         term.queue(ResetStyle)?;
 
+        // formatting to insert a newline every
         if i == 51 || i == 87 || i == 123 || i == 159 || i == 195 {
             term.write_all(b"\n")?;
         }
     }
 
     term.write_all(b"\n")?;
-    
+
     Ok(())
 }

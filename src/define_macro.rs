@@ -29,7 +29,8 @@ macro_rules! define {
     (default-no-args
         $(#[$attrs:meta])*
         definition: $visible:vis struct $typ:ident,
-        capability: $capability:ty,
+        capability: $capability:expr,
+        capability_getter: $capability_getter:expr,
         size_hint: $size:expr,
         unsupported_msg: $unsupported_msg:literal $(,)?
         $(--add-command-implementation-errors-docs $($placeholder:tt)? )?
@@ -38,32 +39,22 @@ macro_rules! define {
             $(#[$attrs])*
             definition: $visible struct $typ,
             capability: $capability,
+            capability_getter: $capability_getter,
             size_hint: $size,
             unsupported_msg: $unsupported_msg,
-            write_to_impl: |self, database, capability, ctx, target| {
+            write_to_impl: |self, database, capability_data, target| {
 
-                match capability.expand().with(ctx).to(target) {
-                    // writing to `target` was successful
-                    Ok(_) => (),
-                    // writing to `target` was unsuccessful
-                    Err(error) => return match error {
-                        ::terminfo::Error::Parse => Err(::std::io::Error::new(
-                            ::std::io::ErrorKind::InvalidData,
-                            error
-                        )),
-                        ::terminfo::Error::NotFound => Err(::std::io::Error::new(
-                            ::std::io::ErrorKind::NotFound,
-                            error
-                        )),
-                        ::terminfo::Error::Expand(_) => Err(::std::io::Error::new(
-                            ::std::io::ErrorKind::Other,
-                            error
-                        )),
-                        ::terminfo::Error::Io(io_error) => Err(io_error)
-                    }
-                }
+                let res = infoterm::expand::expand(capability_data, &[]);
+
+                let expanded = match res {
+                    Ok(expanded) => expanded,
+                    Err(_) => return Err(::std::io::ErrorKind::InvalidData.into()),
+                };
+
+                target.write_all(expanded.as_slice())?;
             },
-            is_supported_impl: |self, database: &::terminfo::Database, capability| {
+            is_supported_impl: |self, database, capability| {
+                // this is ok because whether the capability exists is checked within the call
                 true
             }
             $(--add-command-implementation-errors-docs $($placeholder)?)?
@@ -72,26 +63,15 @@ macro_rules! define {
     (custom-impl
         $(#[$attrs:meta])*
         definition: $visible:vis struct $typ:ident $(( $( $args:tt  )+ ))?,
-        capability: $capability:ty,
+        capability: $capability:expr,
+        capability_getter: $capability_getter:expr,
         size_hint: $size_hint:expr,
         unsupported_msg: $unsupported_msg:literal,
-        write_to_impl: |$write_to_self_var_name:ident, $write_to_database_var_name:ident, $cap_var_name:ident, $ctx_var_name:ident, $target_var_name:ident $(,)?| $write_to_impl:block,
-        is_supported_impl: |$is_supported_self_var_name:ident $(: $is_supported_self_var_ty:ty)?, $is_supported_database_var_name:ident $(: $is_supported_database_var_ty:ty)?, $is_supported_capability_var_name:ident $(: $is_supported_capability_var_ty:ty)? $(,)?| $is_supported_impl:block $(,)?
-        $(--add-command-implementation-errors-docs $($placeholder:tt)? )?
+        write_to_impl: |$write_to_self_var_name:ident, $write_to_entry_var_name:ident, $cap_var_name:ident, $target_var_name:ident $(,)?| $write_to_impl:block,
+        is_supported_impl: |$is_supported_self_var_name:ident $(: $is_supported_self_var_ty:ty)?, $is_supported_entry_var_name:ident $(: $is_supported_entry_var_ty:ty)?, $is_supported_capability_var_name:ident $(: $is_supported_capability_var_ty:ty)? $(,)?| $is_supported_impl:block $(,)?
     ) => {
 
         $(#[$attrs])*
-        #[doc = concat!(
-            $($($placeholder)?
-                "# `Command` implementation errors\n",
-                "Returns:\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `Unsupported` when the terminal does not support this command\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `InvalidData` when there was an error parsing the terminfo library\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `NotFound` when the terminfo entry for this terminal was not found\n",
-                "- `Err(io::Error)` with an `ErrorKind` of `Other` when there was an error expanding a parameterised terminfo capability.\n",
-                "May also return any other `io::Error`",
-            )?
-        )]
         #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
         $visible struct $typ $(( $($args)+ ))?;
 
@@ -102,11 +82,10 @@ macro_rules! define {
 
             fn write_to(
                 $write_to_self_var_name: &Self,
-                $write_to_database_var_name: &::terminfo::Database,
-                #[allow(unused)] $ctx_var_name: &mut ::terminfo::expand::Context,
+                $write_to_entry_var_name: &::infoterm::entry::Entry,
                 #[allow(unused)] $target_var_name: &mut dyn ::std::io::Write
             ) -> ::std::io::Result<()> {
-                match $write_to_database_var_name.get::<$capability>() {
+                match $capability_getter($write_to_entry_var_name, $capability.into()) {
                     // this command is supported
                     Some($cap_var_name) => $write_to_impl,
                     // this command is unsupported
@@ -118,13 +97,16 @@ macro_rules! define {
                 Ok(())
             }
         }
-        
+
         impl $crate::Capability for $typ {
+
+            type IsSupportedType = bool;
+
             fn is_supported(
                 $is_supported_self_var_name: $crate::__fill_type!($($is_supported_self_var_ty)?, &Self),
-                $is_supported_database_var_name: $crate::__fill_type!($($is_supported_database_var_ty)?, &::terminfo::Database),
+                $is_supported_entry_var_name: $crate::__fill_type!($($is_supported_entry_var_ty)?, &::infoterm::entry::Entry),
             ) -> bool {
-                match $is_supported_database_var_name.get::<$capability>() {
+                match $capability_getter($is_supported_entry_var_name, $capability.into()) {
                     #[allow(unused)] Some($is_supported_capability_var_name) => $is_supported_impl,
                     None => false
                 }
@@ -189,15 +171,11 @@ macro_rules! new_define {
 
             fn is_supported(&self, database: &$crate::terminfo::Database) -> bool $is_supported_impl
 
-            fn write_to(&self, database: &Database, ctx: &mut Context, target: &mut dyn std::io::Write) -> std::io::error::Result<()> {
+            fn write_to(&self, database: &Database, ctx: &mut Context, target: &mut dyn ::std::io::Write) -> ::std::io::error::Result<()> {
 
             }
         }
     }
 }
 
-pub(crate) use {
-    define,
-    new_define,
-    __fill_type,
-};
+pub(crate) use {__fill_type, define, new_define};

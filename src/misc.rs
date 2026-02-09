@@ -18,18 +18,20 @@
 
 use crate::define;
 
-use terminfo::capability as cap;
+use infoterm::{entry::Entry, index::String};
 
 define!(default-no-args
     definition: pub struct EnterAlternateScreen,
-    capability: cap::EnterCaMode,
+    capability: String::EnterCaMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(20),
     unsupported_msg: "The alternate screen is unsupported on this terminal",
 );
 
 define!(default-no-args
     definition: pub struct ExitAlternateScreen,
-    capability: cap::ExitCaMode,
+    capability: String::ExitCaMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(20),
     unsupported_msg: "The alternate screen is unsupported on this terminal",
 );

@@ -15,41 +15,26 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
+use crate::{Capability, Command, define};
 
-use {
-    crate::{
-        define,
-        Command,
-        Capability
-    },
+use std::{io, env};
 
-    std::io,
-
-    terminfo::{capability as cap, Database},
+use infoterm::{
+    entry::Entry,
+    expand,
+    index::{Boolean, Integer, String},
 };
-
-pub struct Colors;
-
-impl Capability for Colors {
-    fn is_supported(&self, database: &Database) -> bool {
-        match database.get::<cap::MaxColors>() {
-            Some(cap) => cap.0 > 0,
-            None => false,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Writeln<'a>(pub &'a [u8]);
 
 impl<'a> Command for Writeln<'a> {
     fn size_hint(&self) -> Option<usize> {
-        // add 1 because `write_to()` appends a newline
-        Some(self.0.len() + 1)
+        // add 2 because `write_to()` appends a CRLF
+        Some(self.0.len() + 2)
     }
 
-    fn write_to(&self, _database: &Database, _ctx: &mut terminfo::expand::Context, target: &mut dyn io::Write) -> io::Result<()> {
-
+    fn write_to(&self, _database: &Entry, target: &mut dyn io::Write) -> io::Result<()> {
         target.write_all(self.0)?;
 
         target.write_all(b"\r\n")?;
@@ -59,7 +44,10 @@ impl<'a> Command for Writeln<'a> {
 }
 
 impl<'a> Capability for Writeln<'a> {
-    fn is_supported(&self, _: &Database) -> bool {
+    type IsSupportedType = bool;
+
+    fn is_supported(&self, _: &Entry) -> bool {
+        // every terminal supports writing to it, right?
         true
     }
 }
@@ -72,13 +60,7 @@ impl<'a> Command for Write<'a> {
         Some(self.0.len())
     }
 
-    fn write_to(
-        &self,
-        _database: &Database,
-        _ctx: &mut terminfo::expand::Context,
-        target: &mut dyn io::Write
-    ) -> io::Result<()> {
-
+    fn write_to(&self, _database: &Entry, target: &mut dyn io::Write) -> io::Result<()> {
         target.write_all(self.0)?;
 
         Ok(())
@@ -86,61 +68,63 @@ impl<'a> Command for Write<'a> {
 }
 
 impl<'a> Capability for Write<'a> {
-    fn is_supported(&self, _: &Database) -> bool {
+    type IsSupportedType = bool;
+
+    fn is_supported(&self, _: &Entry) -> bool {
         true
     }
 }
 
 define!(default-no-args
     /// Resets the current terminal style
-    /// 
-    /// This command uses the 'sgr0' ('exit_attribute_mode') capability in terminfo which is 
-    /// described by the [linux man page](terminfo_docs) as 'turn off all attributes'. This is 
-    /// interpreted differently across terminal implementations so this may reset some other aspects 
+    ///
+    /// This command uses the 'sgr0' ('exit_attribute_mode') capability in terminfo which is
+    /// described by the [linux man page](terminfo_docs) as 'turn off all attributes'. This is
+    /// interpreted differently across terminal implementations so this may reset some other aspects
     /// of the terminal depending on the terminal. This may not always reset colours as well.
-    /// 
+    ///
     /// [terminfo_docs]: https://man7.org/linux/man-pages/man5/terminfo.5.html
     definition: pub struct ResetStyle,
-    capability: cap::ExitAttributeMode,
+    capability: String::ExitAttributeMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Resetting the current style (terminfo cap-name 'sgr0' in terminfo) is unsupported on this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Enables bold mode
     definition: pub struct SetBold,
-    capability: cap::EnterBoldMode,
+    capability: String::EnterBoldMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Bold mode (terminfo cap-name 'bold') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Makes text that is written after this command underlined
     definition: pub struct SetUnderline,
-    capability: cap::EnterUnderlineMode,
+    capability: String::EnterUnderlineMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Underline mode (terminfo cap-name 'smul') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Disables underlined mode (see [EnterUnderline])
     definition: pub struct ResetUnderline,
-    capability: cap::ExitUnderlineMode,
+    capability: String::ExitUnderlineMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Resetting underline mode explicitly (terminfo cap-name 'rmul') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Switches the foreground and background colours for text written after this command has been executed
     definition: pub struct SetReverseMode,
-    capability: cap::EnterReverseMode,
+    capability: String::EnterReverseMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Reverse video mode (terminfo cap-name 'rev') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
@@ -152,47 +136,53 @@ define!(default-no-args
     /// [bold mode]: SetBold
     /// [underline mode]: SetUnderline
     definition: pub struct SetStandoutMode,
-    capability: cap::EnterStandoutMode,
+    capability: String::EnterStandoutMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(20),
     unsupported_msg: "Standout mode (terminfo cap-name 'smso') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Disables standout mode (see [SetStandoutMode])
     definition: pub struct ResetStandoutMode,
-    capability: cap::ExitStandoutMode,
+    capability: String::ExitStandoutMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(20),
     unsupported_msg: "Resetting standout mode explicitly (terminfo cap-name 'rmso') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Makes text written after this command appear dimmed
     definition: pub struct SetDim,
-    capability: cap::EnterDimMode,
+    capability: String::EnterDimMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Dim mode (terminfo cap-name 'dim') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Makes text written after this command blink
     definition: pub struct SetBlinking,
-    capability: cap::EnterBlinkMode,
+    capability: String::EnterBlinkMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Blinking mode (terminfo cap-name 'blink' is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
 
 define!(default-no-args
     /// Makes text written after this command invisible
     definition: pub struct SetInvisible,
-    capability: cap::EnterSecureMode,
+    capability: String::EnterSecureMode,
+    capability_getter: Entry::get_string,
     size_hint: Some(8),
     unsupported_msg: "Invisible mode (terminfo cap-name 'invis') is unsupported in this terminal",
-    --add-command-implementation-errors-docs
 );
+
+// FIXME: Once `!` is stabilised, change `std::convert::Infallible` to `!`
+#[inline]
+fn unsupported_io_error() -> io::Result<()> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
+}
 
 define!(custom-impl
     /// Sets the foreground color (the color of the text) to `self.0` if it is supported for text
@@ -212,172 +202,292 @@ define!(custom-impl
     /// - `io::Error` with an `ErrorKind` of `Other` when there was an error expanding the terminfo
     /// capability with the requested color
     definition: pub struct SetForegroundColor(pub Color),
-    capability: cap::SetAForeground,
+    capability: String::SetAForeground,
+    capability_getter: Entry::get_string,
     size_hint: Some(16),
     unsupported_msg: "Setting the foreground color separately to the background color and/or setting any colours is unsupported in this terminal",
-    write_to_impl: |self, database, capability, ctx, target| {
-
-        // how many colors are supported and is assumed to be the maximum color value you can have
-        let colors = database.get::<cap::MaxColors>()
-            .ok_or(io::Error::new(
-                io::ErrorKind::Unsupported,
-                "No colors! What age is this terminal from?"
-            ))?.0;
-
-        let requested_color = self.0.as_u8();
-
-        // if the color requested is supported
-        //
-        // colors - 1 is used because `colors` is the number of distinct colors available. For example,
-        // if `colors == 8`, the values `0..=7` are the values that can be used in `Expansion::color()`
-        if (0..colors).contains(&(requested_color as i32)) {
-            // the terminal supports the color
-            match capability.expand().color(requested_color).to(target) {
-                Ok(_) => (),
-                Err(error) => return match error {
-                    terminfo::Error::Io(io_error) => Err(io_error),
-                    terminfo::Error::NotFound => Err(io::Error::new(io::ErrorKind::NotFound, error)),
-                    terminfo::Error::Parse => Err(io::Error::new(io::ErrorKind::InvalidData, error)),
-                    terminfo::Error::Expand(_) => Err(io::Error::new(io::ErrorKind::Other, error)),
-                }
-            }
-        } else {
-            // the terminal doesn't support the requested color
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("The terminal only supports {colors} colors which is less than the requested color: {:?}", self.0).as_str()
-            ))
-        }
-    },
-    is_supported_impl: |self, database, capability| {
-        // how many colors are supported and is assumed to be the maximum color value you can have
-        let colors = match database.get::<cap::MaxColors>() {
-            Some(max_colors) => max_colors.0,
-            None => return false,
+    write_to_impl: |self, entry, capability_data, target| {
+        let n_colors = match entry.get_integer(Integer::MaxColors.into()) {
+            Some(n) => n,
+            None => return unsupported_io_error()
         };
 
-        let requested_color = self.0.as_u8();
+        match self.0 {
+            Color::Standard(standard_color) => if n_colors == 8 || n_colors == 16 || n_colors == 256 {
+                target.write_all(
+                    match expand::expand(capability_data, &[expand::Value::Int(standard_color as i32)]) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return Err(io::ErrorKind::InvalidData.into()),
+                    }.as_slice()
+                )?
+            } else {
+                return unsupported_io_error()
+            },
+            Color::Bright(bright_color) => if n_colors == 16 || n_colors == 256 {
+                target.write_all(
+                    match expand::expand(capability_data, &[expand::Value::Int(bright_color as i32)]) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return Err(io::ErrorKind::InvalidData.into())
+                    }.as_slice()
+                )?
+            } else {
+                return unsupported_io_error()
+            },
+            Color::From256ColorPalette(id) => if n_colors == 256 {
+                target.write_all(
+                    match expand::expand(capability_data, &[expand::Value::Int(id as i32)]) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return Err(io::ErrorKind::InvalidData.into())
+                    }.as_slice()
+                )?
+            } else {
+                return unsupported_io_error()
+            },
+            Color::Truecolor(r, g, b) => {
+                let truecolor_supported = match entry.get_user_string("Tc") {
+                    Some(_) => true,
+                    None => match entry.get_user_string("RGB") {
+                        Some(_) => true,
+                        None => match env::var("COLORTERM") {
+                            Ok(colorterm_var) => {
+                                if colorterm_var == "truecolor" || colorterm_var == "24bit" {
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                            Err(_) => false,
+                        }
+                    }
+                };
 
-        (0..colors).contains(&(requested_color as i32))
+                if truecolor_supported {
+                    target.write_all(b"\x1b[38;2;")?;
+
+                    let mut itoa_buf = itoa::Buffer::new();
+
+                    target.write_all(itoa_buf.format(r).as_bytes())?;
+
+                    target.write_all(b";")?;
+
+                    target.write_all(itoa_buf.format(g).as_bytes())?;
+
+                    target.write_all(b";")?;
+
+                    target.write_all(itoa_buf.format(b).as_bytes())?;
+
+                    target.write_all(b"m")?;
+                } else {
+                    return unsupported_io_error()
+                }
+            }
+        }
+    },
+    is_supported_impl: |self, entry, capability| {
+        Colors::from(self.0).is_supported(entry)
     }
 );
 
 define!(custom-impl
     definition: pub struct SetBackgroundColor(pub Color),
-    capability: cap::SetABackground,
+    capability: String::SetABackground,
+    capability_getter: Entry::get_string,
     size_hint: Some(16),
     unsupported_msg: "Setting the background color separately to the foreground color and/or setting any colours is unsupported in this terminal",
-    write_to_impl: |self, database, capability, ctx, target| {
+    write_to_impl: |self, entry, capability_data, target| {
 
-        // how many colors are supported and is assumed to be the maximum color value you can have
-        let colors = database.get::<cap::MaxColors>()
-            .ok_or(io::Error::new(
-                io::ErrorKind::Unsupported,
-                "No colors! What age is this terminal from?"
-            ))?.0;
-
-        let requested_color = self.0.as_u8();
-
-        // if the color requested is supported
-        //
-        // colors - 1 is used because `colors` is the number of distinct colors available. For example,
-        // if `colors == 8`, the values `0..=7` are the values that can be used in `Expansion::color()`
-        if (0..colors).contains(&(requested_color as i32)) {
-            // the terminal supports the color
-            match capability.expand().color(requested_color).to(target) {
-                Ok(_) => (),
-                Err(error) => return match error {
-                    terminfo::Error::Io(io_error) => Err(io_error),
-                    terminfo::Error::NotFound => Err(io::Error::new(io::ErrorKind::NotFound, error)),
-                    terminfo::Error::Parse => Err(io::Error::new(io::ErrorKind::InvalidData, error)),
-                    terminfo::Error::Expand(_) => Err(io::Error::new(io::ErrorKind::Other, error)),
-                }
-            }
-        } else {
-            // the terminal doesn't support the requested color
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("The terminal only supports {colors} colors which is less than the requested color: {:?}", self.0).as_str()
-            ))
-        }
-    },
-    // if your IDE reports the error "Missing lifetime specifier" here when you explicitly set the type, it is wrong
-    // and is a limitation of rust-analyzer. If you compile the code directly with cargo or rustc, you won't get this
-    // error.
-    is_supported_impl: |self, database, capability: cap::SetABackground| {
-        // how many colors are supported and is assumed to be the maximum color value you can have
-        let colors = match database.get::<cap::MaxColors>() {
-            Some(max_colors) => max_colors.0,
-            None => return false,
+        let n_colors = match entry.get_integer(Integer::MaxColors.into()) {
+            Some(n) => n,
+            None => return unsupported_io_error()
         };
 
-        let requested_color = self.0.as_u8();
+        match self.0 {
+            Color::Standard(standard_color) => if n_colors == 8 || n_colors == 16 || n_colors == 256 {
+                target.write_all(
+                    match expand::expand(capability_data, &[expand::Value::Int(standard_color as i32)]) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return Err(io::ErrorKind::InvalidData.into()),
+                    }.as_slice()
+                )?
+            } else {
+                return unsupported_io_error()
+            },
+            Color::Bright(bright_color) => if n_colors == 16 || n_colors == 256 {
+                target.write_all(
+                    match expand::expand(capability_data, &[expand::Value::Int(bright_color as i32)]) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return Err(io::ErrorKind::InvalidData.into())
+                    }.as_slice()
+                )?
+            } else {
+                return unsupported_io_error()
+            },
+            Color::From256ColorPalette(id) => if n_colors == 256 {
+                target.write_all(
+                    match expand::expand(capability_data, &[expand::Value::Int(id as i32)]) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return Err(io::ErrorKind::InvalidData.into())
+                    }.as_slice()
+                )?
+            } else {
+                return unsupported_io_error()
+            },
+            Color::Truecolor(r, g, b) => {
+                let truecolor_supported = match entry.get_user_string("Tc") {
+                    Some(_) => true,
+                    None => match entry.get_user_string("RGB") {
+                        Some(_) => true,
+                        None => match env::var("COLORTERM") {
+                            Ok(colorterm_var) => {
+                                if colorterm_var == "truecolor" || colorterm_var == "24bit" {
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                            Err(_) => false,
+                        }
+                    }
+                };
 
-        (0..colors).contains(&(requested_color as i32))
+                if truecolor_supported {
+                    target.write_all(b"\x1b[48;2;")?;
+
+                    let mut itoa_buf = itoa::Buffer::new();
+
+                    target.write_all(itoa_buf.format(r).as_bytes())?;
+
+                    target.write_all(b";")?;
+
+                    target.write_all(itoa_buf.format(g).as_bytes())?;
+
+                    target.write_all(b";")?;
+
+                    target.write_all(itoa_buf.format(b).as_bytes())?;
+
+                    target.write_all(b"m")?;
+                } else {
+                    return unsupported_io_error()
+                }
+            }
+        }
+    },
+    is_supported_impl: |self, entry, capability_data| {
+        Colors::from(self.0).is_supported(entry)
     }
 );
 
-/// This is documentation here
-///
-/// Note: More variants are planned to be added
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum Color {
-    // standard colors
-    Black,
-    Red,
-    Green,
-    Yellow,
-    Blue,
-    Magenta,
-    Cyan,
-    White,
-
-    // standard bright colors
-    BrightBlack,
-    BrightRed,
-    BrightGreen,
-    BrightYellow,
-    BrightBlue,
-    BrightMagenta,
-    BrightCyan,
-    BrightWhite,
-
-    /// A color described by an id
-    ///
-    /// All values of a `u8` (0-255 inclusive) all represent valid colors
-    ///
-    /// Here is a table describing the mapping between the IDs and their colors:
-    ///
-    /// TODO: Add the table to github
-    ///
-    /// ![testtest](https://github.com/polyagonal1/supaterm/raw/refs/heads/master/images/256-color-mode.png)
-    ColorById(u8)
-}
-
-impl Color {
-    #[inline]
-    pub(super) const fn as_u8(&self) -> u8 {
-        match self {
-            Color::Black => 0,
-            Color::Red => 1,
-            Color::Green => 2,
-            Color::Yellow => 3,
-            Color::Blue => 4,
-            Color::Magenta => 5,
-            Color::Cyan => 6,
-            Color::White => 7,
-
-            Color::BrightBlack => 8,
-            Color::BrightRed => 9,
-            Color::BrightGreen => 10,
-            Color::BrightYellow => 11,
-            Color::BrightBlue => 12,
-            Color::BrightMagenta => 13,
-            Color::BrightCyan => 14,
-            Color::BrightWhite => 15,
-
-            Color::ColorById(id) => *id
+impl From<Color> for Colors {
+    fn from(value: Color) -> Self {
+        match value {
+            Color::Standard(_) => Self::Standard,
+            Color::Bright(_) => Self::Bright,
+            Color::From256ColorPalette(_) => Self::From256ColorPalette,
+            Color::Truecolor(_, _, _) => Self::Truecolor,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum Color {
+    /// See docs for [`StandardColor`]
+    Standard(StandardColor),
+    /// See docs for [`BrightColor`]
+    Bright(BrightColor),
+    /// Colors that are identified by an id.
+    ///
+    /// All values of a `u8` are valid id's although some ids are equivalent to the other enum
+    /// variants and those enum variants should be preferred:
+    /// - [`Self::Standard`] should be preferred to ids 0-7 inclusive
+    /// - [`Self::Bright`] should be preferred to ids 8-15 inclusive
+    ///
+    /// Table with what ids correspond for which color:
+    /// ![Table showing what ids in `supaterm::Color::_256ColorPalette` correspond to which colors](https://raw.githubusercontent.com/polyagonal1/supaterm/refs/heads/master/images/256-color-mode-usage.png)
+    From256ColorPalette(u8),
+    /// An RGB color
+    ///
+    /// RGB is not supported on all terminals but it is on some terminals
+    Truecolor(u8, u8, u8),
+}
+
+/// 2x2x2 color cube
+///
+/// These colors are supported by almost all terminals
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum StandardColor {
+    Black = 0,
+    Red = 1,
+    Green = 2,
+    Yellow = 3,
+    Blue = 4,
+    Magenta = 5,
+    Cyan = 6,
+    White = 7,
+}
+
+/// Bright versions of the colors in `StandardColor`
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum BrightColor {
+    BrightBlack = 8,
+    BrightRed = 9,
+    BrightGreen = 10,
+    BrightYellow = 11,
+    BrightBlue = 12,
+    BrightMagenta = 13,
+    BrightCyan = 14,
+    BrightWhite = 15,
+}
+
+pub enum Colors {
+    Standard,
+    Bright,
+    From256ColorPalette,
+    Truecolor,
+}
+
+impl Capability for Colors {
+    fn is_supported(&self, entry: &Entry) -> Self::IsSupportedType {
+        let n_colors = match entry.get_integer(Integer::MaxColors.into()) {
+            Some(n) => n,
+            None => return false,
+        };
+
+        match self {
+            Self::Standard => if n_colors == 8 || n_colors == 16 || n_colors == 256 {
+                true
+            } else {
+                false
+            },
+            Self::Bright => if n_colors == 16 || n_colors == 256 {
+                true
+            } else {
+                false
+            },
+            Self::From256ColorPalette => if n_colors == 256 {
+                true
+            } else {
+                false
+            },
+            Self::Truecolor => match entry.get_user_string("Tc") {
+                Some(_) => true,
+                None => match entry.get_user_string("RGB") {
+                    Some(_) => true,
+                    None => match env::var("COLORTERM") {
+                        Ok(colorterm_var) => {
+                            if colorterm_var == "truecolor" || colorterm_var == "24bit" {
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                        Err(_) => false,
+                    }
+                }
+            }
+        }
+    }
+
+    type IsSupportedType = bool;
 }
