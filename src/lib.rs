@@ -35,42 +35,42 @@ use infoterm::{entry::Entry, search::Search};
 
 pub(crate) use define_macro::*;
 
-/// A wrapper around a reader and writer that allows queueing of commands
-pub struct Terminal<I: io::Read, O: io::Write> {
-    reader: I,
-    writer: O,
+/// A wrapper around stdin and stdout that allows queueing of commands
+pub struct Terminal<'t> {
+    stdin: io::StdinLock<'t>,
+    stdout: io::StdoutLock<'t>,
     info: Entry,
 }
 
-impl<'a, 'b> Default for Terminal<io::StdinLock<'a>, io::StdoutLock<'b>> {
+impl Default for Terminal<'_> {
+    #[inline]
     fn default() -> Self {
-        Self::new(io::stdin().lock(), io::stdout().lock()).unwrap()
+        Self::new().unwrap()
     }
 }
 
-impl<I: io::Read, O: io::Write> io::Write for Terminal<I, O> {
+impl io::Write for Terminal<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.writer.write(buf)
+        self.stdout.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.writer.flush()
+        self.stdout.flush()
     }
 }
 
-impl<I: io::Read, O: io::Write> io::Read for Terminal<I, O> {
+impl io::Read for Terminal<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
+        self.stdin.read(buf)
     }
 }
 
-impl<I: io::Read, O: io::Write> Terminal<I, O> {
+impl<'t> Terminal<'t> {
     /// Creates a new `Terminal` instance which can be used to queue commands
-    #[inline]
-    pub fn new(reader: I, writer: O) -> io::Result<Self> {
+    pub fn new() -> io::Result<Self> {
         Ok(Self {
-            reader,
-            writer,
+            stdin: io::stdin().lock(),
+            stdout: io::stdout().lock(),
             info: {
                 let searcher = Search::standard();
 
@@ -96,11 +96,6 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
         })
     }
 
-    /// Consumes `self` and returns the reader and writer used under the hood
-    pub fn into_inner(self) -> (I, O) {
-        (self.reader, self.writer)
-    }
-
     /// Checks if some command `cmd` is supported and can be used on this terminal
     pub fn is_capability_supported<C: Capability>(&self, cmd: C) -> bool {
         cmd.is_supported(&self.info)
@@ -116,7 +111,7 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
     /// based on that.
     pub fn queue_if_supported(&mut self, cmd: impl Command) -> Option<io::Result<()>> {
         match cmd.is_supported(&self.info) {
-            true => Some(cmd.write_to(&self.info, &mut self.writer)),
+            true => Some(cmd.write_to(&self.info, &mut self.stdout)),
             false => None,
         }
     }
@@ -126,12 +121,12 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
     /// This function may not immediately execute the command. Call `flush()` after to execute all
     /// queued commands
     pub fn queue(&mut self, command: impl Command) -> io::Result<()> {
-        command.write_to(&self.info, &mut self.writer)
+        command.write_to(&self.info, &mut self.stdout)
     }
 
     pub fn queue_all<const N: usize>(&mut self, commands: [&dyn Command; N]) -> io::Result<()> {
         for cmd in commands {
-            cmd.write_to(&self.info, &mut self.writer)?;
+            cmd.write_to(&self.info, &mut self.stdout)?;
         }
 
         Ok(())
