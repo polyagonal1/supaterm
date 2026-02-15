@@ -24,10 +24,10 @@ use supaterm::{
     },
 };
 
-use std::io::{self, Write};
+use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut term = st::Terminal::new(io::stdin().lock(), io::stdout().lock())?;
+    let mut term = st::Terminal::new()?;
     
     // standard colors
     
@@ -45,21 +45,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // bright colors
     
     if !term.is_capability_supported(Colors::Bright) {
-        term.write_all(b"Bright colors are not supported. How unfortunate.")?;
+        term.write_all(b"Bright colors are not supported. How unfortunate.\n")?;
         return Ok(())
     }
     
     term.queue(SetBackgroundColor(Color::Bright(BrightColor::BrightYellow)))?;
-    term.write_all(b"This text is bright yellow")?;
+    term.write_all(b"This text is bright yellow.")?;
     term.queue(ResetStyle)?;
+    term.write_all(b"\n")?;
     
     // 256-color mode
     
     if !term.is_capability_supported(Colors::From256ColorPalette) {
-        term.write_all(b"256 color mode is unsupported. I guess not every terminal is perfect")?;
+        term.write_all(b"256 color mode is unsupported.\n")?;
         return Ok(())
     }
-
     
     for i in 16..=255u8 {
         if i == 16 {
