@@ -59,16 +59,19 @@ impl Default for Terminal<'_> {
 }
 
 impl io::Write for Terminal<'_> {
+    #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.stdout.write(buf)
     }
-
+    
+    #[inline]
     fn flush(&mut self) -> io::Result<()> {
         self.stdout.flush()
     }
 }
 
 impl io::Read for Terminal<'_> {
+    #[inline]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.stdin.read(buf)
     }
@@ -119,6 +122,7 @@ impl<'t> Terminal<'t> {
     ///
     /// This is the same as checking `term.is_cmd_supported(cmd)`, then `queue()`ing the command
     /// based on that.
+    #[inline]
     pub fn queue_if_supported(&mut self, cmd: impl Command) -> Option<io::Result<()>> {
         match cmd.is_supported(&self.info) {
             true => Some(cmd.write_to(&self.info, &mut self.stdout)),
@@ -143,10 +147,12 @@ impl<'t> Terminal<'t> {
     ///
     /// This function may not immediately execute the command. Call `flush()` after to execute all
     /// queued commands
+    #[inline]
     pub fn queue(&mut self, command: impl Command) -> io::Result<()> {
         command.write_to(&self.info, &mut self.stdout)
     }
-
+    
+    #[inline]
     pub fn queue_all<const N: usize>(&mut self, commands: [&dyn Command; N]) -> io::Result<()> {
         for cmd in commands {
             cmd.write_to(&self.info, &mut self.stdout)?;
