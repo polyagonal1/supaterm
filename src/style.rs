@@ -44,7 +44,6 @@ impl<'a> Command for Writeln<'a> {
 }
 
 impl<'a> Capability for Writeln<'a> {
-    type IsSupportedType = bool;
 
     fn is_supported(&self, _: &Entry) -> bool {
         // every terminal supports writing to it, right?
@@ -68,8 +67,7 @@ impl<'a> Command for Write<'a> {
 }
 
 impl<'a> Capability for Write<'a> {
-    type IsSupportedType = bool;
-
+    
     fn is_supported(&self, _: &Entry) -> bool {
         true
     }
@@ -448,7 +446,7 @@ pub enum Colors {
 }
 
 impl Capability for Colors {
-    fn is_supported(&self, entry: &Entry) -> Self::IsSupportedType {
+    fn is_supported(&self, entry: &Entry) -> bool {
         let n_colors = match entry.get_integer(Integer::MaxColors.into()) {
             Some(n) => n,
             None => return false,
@@ -488,6 +486,4 @@ impl Capability for Colors {
             }
         }
     }
-
-    type IsSupportedType = bool;
 }

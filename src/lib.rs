@@ -102,7 +102,7 @@ impl<I: io::Read, O: io::Write> Terminal<I, O> {
     }
 
     /// Checks if some command `cmd` is supported and can be used on this terminal
-    pub fn is_capability_supported<C: Capability>(&self, cmd: C) -> C::IsSupportedType {
+    pub fn is_capability_supported<C: Capability>(&self, cmd: C) -> bool {
         cmd.is_supported(&self.info)
     }
 

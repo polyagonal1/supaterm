@@ -17,15 +17,60 @@
 */
 
 use std::io;
+use infoterm::Entry;
 
-pub trait Command: Capability<IsSupportedType = bool> {
+pub trait Command: Capability {
     fn size_hint(&self) -> Option<usize>;
 
-    fn write_to(&self, database: &infoterm::Entry, target: &mut dyn io::Write) -> io::Result<()>;
+    fn write_to(&self, terminfo_entry: &Entry, target: &mut dyn io::Write) -> io::Result<()>;
 }
 
 pub trait Capability {
-    type IsSupportedType;
 
-    fn is_supported(&self, database: &infoterm::Entry) -> Self::IsSupportedType;
+    fn is_supported(&self, terminfo_entry: &Entry) -> bool;
+}
+
+impl Capability for &dyn Capability {
+
+    fn is_supported(&self, terminfo_entry: &Entry) -> bool {
+        (**self).is_supported(terminfo_entry)
+    }
+}
+
+impl Capability for &mut dyn Capability {
+    fn is_supported(&self, terminfo_entry: &Entry) -> bool {
+        (**self).is_supported(terminfo_entry)
+    }
+}
+
+impl Capability for &dyn Command {
+    fn is_supported(&self, terminfo_entry: &Entry) -> bool {
+        (**self).is_supported(terminfo_entry)
+    }
+}
+
+impl Capability for &mut dyn Command {
+    fn is_supported(&self, terminfo_entry: &Entry) -> bool {
+        (**self).is_supported(terminfo_entry)
+    }
+}
+
+impl Command for &dyn Command {
+    fn size_hint(&self) -> Option<usize> {
+        (*self).size_hint()
+    }
+
+    fn write_to(&self, terminfo_entry: &Entry, target: &mut dyn io::Write) -> io::Result<()> {
+        (**self).write_to(terminfo_entry, target)
+    }
+}
+
+impl Command for &mut dyn Command {
+    fn size_hint(&self) -> Option<usize> {
+        (**self).size_hint()
+    }
+
+    fn write_to(&self, terminfo_entry: &Entry, target: &mut dyn io::Write) -> io::Result<()> {
+        (**self).write_to(terminfo_entry, target)
+    }
 }

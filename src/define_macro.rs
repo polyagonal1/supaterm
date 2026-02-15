@@ -100,8 +100,6 @@ macro_rules! define {
 
         impl $crate::Capability for $typ {
 
-            type IsSupportedType = bool;
-
             fn is_supported(
                 $is_supported_self_var_name: $crate::__fill_type!($($is_supported_self_var_ty)?, &Self),
                 $is_supported_entry_var_name: $crate::__fill_type!($($is_supported_entry_var_ty)?, &::infoterm::entry::Entry),
