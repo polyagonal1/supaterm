@@ -40,6 +40,15 @@ pub struct Terminal<'t> {
     stdin: io::StdinLock<'t>,
     stdout: io::StdoutLock<'t>,
     info: Entry,
+    on_drop: Vec<Box<dyn Command + 't>>,
+}
+
+impl Drop for Terminal<'_> {
+    fn drop(&mut self) {
+        for cmd in self.on_drop.iter() {
+            let _ = cmd.write_to(&self.info, &mut self.stdout);
+        }
+    }
 }
 
 impl Default for Terminal<'_> {
@@ -93,6 +102,7 @@ impl<'t> Terminal<'t> {
                     Err(_) => return Err(io::ErrorKind::InvalidData.into()),
                 }
             },
+            on_drop: Vec::new(),
         })
     }
 
@@ -115,6 +125,19 @@ impl<'t> Terminal<'t> {
             false => None,
         }
     }
+    
+    #[inline]
+    pub fn on_drop<C>(&mut self, cmd: C)
+    where
+        C: Command + 't
+    {
+        self.on_drop.push(Box::new(cmd))
+    }
+    
+    // #[inline]
+    // pub fn on_drop_multiple<C: IntoIterator<Item = &dyn Command>>(&mut self, cmds: C) {
+    //     self.on_drop.extend(cmds)
+    // }
 
     /// Queues a command for execution
     ///
