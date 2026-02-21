@@ -88,11 +88,9 @@ impl<'t> Terminal<'t> {
 
                 let entry_name = match env::var("TERM") {
                     Ok(entry_name) => entry_name,
-                    Err(error) => match error {
-                        env::VarError::NotUnicode(_) => {
-                            return Err(io::ErrorKind::InvalidData.into());
-                        }
-                        env::VarError::NotPresent => return Err(io::ErrorKind::NotFound.into()),
+                    Err(error) => return match error {
+                        env::VarError::NotUnicode(_) => Err(io::ErrorKind::InvalidData.into()),
+                        env::VarError::NotPresent => Err(io::ErrorKind::NotFound.into()),
                     },
                 };
 
