@@ -1,5 +1,5 @@
 /*
-    supaterm – terminal manipulation library allowing use of colored text and other functionality is planned
+    supaterm – terminal manipulation library
     Copyright (C) 2026  @polyagonal1
 
     This program is free software: you can redistribute it and/or modify
@@ -16,22 +16,33 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-use crate::define;
+use std::{
+	error,
+	io::Write,
+};
 
-use infoterm::{entry::Entry, index::String};
+use supaterm::{
+	Terminal,
+	raw::RawMode,
+};
 
-define!(default-no-args
-    definition: pub struct EnterAlternateScreen,
-    capability: String::EnterCaMode,
-    capability_getter: Entry::get_string,
-    size_hint: Some(20),
-    unsupported_msg: "The alternate screen is unsupported on this terminal",
-);
+fn main() -> Result<(), Box<dyn error::Error>> {
+	{
+		let mut term = Terminal::new();
 
-define!(default-no-args
-    definition: pub struct ExitAlternateScreen,
-    capability: String::ExitCaMode,
-    capability_getter: Entry::get_string,
-    size_hint: Some(20),
-    unsupported_msg: "The alternate screen is unsupported on this terminal",
-);
+		// this should output 'World!' directly below 'Hello'
+		write!(term, "Hello\nWorld!\n\n")?;
+
+		term.enable_raw_mode()?;
+
+		write!(term, "Raw mode is enabled now.\r\n\r\n")?;
+
+		// this should output 'World!' diagonally below and to the right of
+		//  'Hello' because newlines are not translated into CRLFs
+		write!(term, "Hello\nWorld\r\n\r\n")?;
+	}
+
+	println!("And back to canonical mode.");
+
+	Ok(())
+}

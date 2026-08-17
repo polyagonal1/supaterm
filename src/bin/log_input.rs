@@ -16,21 +16,33 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-//! # Supaterm
-//! 
-//! This is a low-level terminal manipulation library that aims to be simple to 
-//! use and ergonomic and fast. ('Low-level' meaning that it does not provide 
-//! any sort of TUI, just the commands used to make the TUI.)
-//! 
-//! This crate does not currently support Windows, but I would like to add 
-//! support at some point in the future.
+use std::{
+	io::{Read, Write},
+	error,
+};
 
-mod cmds;
-mod terminal;
-#[cfg(feature = "raw_mode")]
-pub mod raw;
-#[cfg(feature = "window_size")]
-pub mod winsize;
+use supaterm::{
+	Terminal,
+	raw::RawMode,
+};
 
-pub use cmds::*;
-pub use terminal::Terminal;
+fn main() -> Result<(), Box<dyn error::Error>> {
+	let mut term = Terminal::new();
+	term.enable_raw_mode()?;
+
+	loop {
+		let mut buf: [u8; 1] = [0; 1];
+
+		term.read(&mut buf)?;
+
+		if buf[0] == b'!'  {
+			break;
+		} else if buf[0] != 0 {
+			let byte = buf[0];
+			write!(term, "{:<5} {byte:?}\r\n", byte.escape_ascii())?;
+			term.flush()?;
+		}
+	}
+
+	Ok(())
+}

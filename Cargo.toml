@@ -3,6 +3,42 @@ name = "supaterm"
 version = "0.1.0"
 edition = "2024"
 
+
+
 [dependencies]
-infoterm = "0.1.1"
-itoa = "1.0.17"
+itoa = { version = "1", optional = true }
+indexmap = { version = "2", features = ["std"], default-features = false, optional = true }
+rustix = { version = "1", features = ["stdio", "termios"], optional = true }
+
+
+
+[features]
+full = ["raw_mode", "alternate_screen", "cursor_controls", "erase_functions"]
+nightly = []
+
+drop_handling = ["indexmap"]
+raw_mode = ["drop_handling", "rustix"]
+window_size = ["rustix"]
+
+alternate_screen = ["itoa", "drop_handling"]
+cursor_controls = ["itoa"]
+erase_functions = ["itoa"]
+
+
+
+[[example]]
+name = "alternate_screen"
+required-features = ["alternate_screen", "cursor_controls"]
+
+[[example]]
+name = "hello_world"
+required-features = []
+
+[[example]]
+name = "raw_mode"
+required-features = ["raw_mode"]
+
+
+[[bin]]
+name = "log_input"
+required-features = ["raw_mode"]

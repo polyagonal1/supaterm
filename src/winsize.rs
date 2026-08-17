@@ -16,21 +16,21 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-//! # Supaterm
-//! 
-//! This is a low-level terminal manipulation library that aims to be simple to 
-//! use and ergonomic and fast. ('Low-level' meaning that it does not provide 
-//! any sort of TUI, just the commands used to make the TUI.)
-//! 
-//! This crate does not currently support Windows, but I would like to add 
-//! support at some point in the future.
+use rustix::{
+	fd::{BorrowedFd, AsFd},
+	termios::{Termios, tcgetwinsize, tcsetwinsize}
+};
 
-mod cmds;
-mod terminal;
-#[cfg(feature = "raw_mode")]
-pub mod raw;
-#[cfg(feature = "window_size")]
-pub mod winsize;
+/// Trait for getting the size of the window in lines and columns.
+///
+/// It is automatically implemented for any type implementing [``]
+pub trait GetWindowSize {
+	/// Gets the current size of the window in lines and columns.
+	fn get_window_size(&self) -> (u16, u16);
+}
 
-pub use cmds::*;
-pub use terminal::Terminal;
+impl<'tty, I, O, R> GetWindowSize for crate::Terminal<'tty, I, O, R> {
+	fn get_window_size(&self) -> (u16, u16) {
+		todo!()
+	}
+}
