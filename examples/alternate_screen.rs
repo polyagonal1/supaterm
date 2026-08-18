@@ -37,6 +37,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 	{
 		let mut term = Terminal::new();
 		term.enter_alternate_screen()?;
+		term.assign_drop_fn("alternate_screen", |term| { let _ = term.disable_alternate_screen(); });
 		// entering the alternate screen does not neccessarily place the cursor
 		// in the home position, so we move it there
 		term.go_to_home()?;
