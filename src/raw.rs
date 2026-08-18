@@ -16,117 +16,158 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-use std::io;
+use std::{
+	io,
+	mem::ManuallyDrop,
+};
 
-use rustix::termios::{Termios, OptionalActions, tcgetattr, tcsetattr};
+use rustix::{
+	io::Errno,
+	stdio,
+	fd::BorrowedFd,
+	termios::{Termios, OptionalActions, tcgetattr, tcsetattr},
+};
 
-use crate::Terminal;
-
-pub(crate) enum RawModeEnabled {
-	Enabled { original_termios: Termios },
-	Disabled,
+pub struct RawTerminal<'tty> {
+	original_termios: Termios,
+	fd: BorrowedFd<'tty>,
 }
 
-impl RawModeEnabled {
-	fn is_enabled(&self) -> bool {
-		match self {
-			RawModeEnabled::Enabled { .. } => true,
-			RawModeEnabled::Disabled => false,
+impl<'tty> Drop for RawTerminal<'tty> {
+	fn drop(&mut self) {
+		let _ = disable_raw_mode_inner(&self);
+	}
+}
+
+impl<'tty> RawTerminal<'tty> {
+	fn new(original_termios: Termios, tty_fd: BorrowedFd<'tty>) -> Self {
+		Self {
+			original_termios,
+			fd: tty_fd,
 		}
 	}
 }
 
-pub trait RawMode<'tty> {
-	/// Enables raw mode for the terminal. Also assigns a drop function to
-	/// `Self` disabling raw mode on drop, making sure the terminal is back to
-	/// [canonical mode][RawMode::disable_raw_mode] when the program exits.
-	///
-	/// When raw mode is enabled:
-	/// - Input is not echoed back to the user.
-	/// - Input can be read byte-by-byte rather than only being sent when the
-	///   user presses enter.
-	/// - Prevents `Ctrl-C` from terminating the process and `Ctrl-Z` from
-	///   suspending it. These are instead sent to the process.
-	/// - Disables `Ctrl-S` which pauses transmission of data to the terminal
-	///   and `Ctrl-Q` which continues transmission of data to the terminal [^1].
-	///   These are instead sent to the program running.
-	/// - Prevents carriage returns from stdin from being translated into
-	///   newlines.
-	/// - Prevents newlines (`\n`) written into stdout from being translated
-	///   into a carriage return and a newline (`\r\n`).
-	/// - Maybe more minor things depending on the terminal/OS.
-	///
-	/// [^1]: https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html#disable-ctrl-s-and-ctrl-q
-	fn enable_raw_mode(&mut self) -> io::Result<()>;
-
-	/// Disables raw mode early and returns to canonical ('cooked') mode, the
-	/// default mode. Removes the drop function assigned by
-	/// [`RawMode::enable_raw_mode`], if any
-	///
-	/// In canonical mode:
-	/// - When the user types something, it is echoed back to the user
-	///   automatically.
-	/// - Input is only sent when the user presses enter.
-	/// - `Ctrl-C` terminates the process and `Ctrl-Z` pauses it.
-	/// - `Ctrl-S` pauses transmission of data to the terminal until `Ctrl-Q`
-	///   is pressed [^1].
-	/// - When the user enters a carriage return, it gets translated into a
-	///   newline.
-	/// - When you write a newline (`\n`) into stdout, it gets translated into
-	///   a CRLF (`\r\n`).
-	/// - Maybe other minor things depending on the terminal/OS.
-	///
-	/// [^1]: <https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html#disable-ctrl-s-and-ctrl-q>
-	fn disable_raw_mode(&mut self) -> io::Result<()>;
-
-	fn is_raw_mode_enabled(&self) -> bool;
+fn retry_on_nonfatal<F, T>(f: F) -> rustix::io::Result<T>
+where
+	F: Fn() -> rustix::io::Result<T>
+{
+	loop {
+		match f() {
+			Ok(r) => return Ok(r),
+			Err(Errno::INTR) | Err(Errno::AGAIN) => continue,
+			Err(other) => return Err(other)
+		}
+	}
 }
 
-impl<'tty, I, O, R> RawMode<'tty> for Terminal<'tty, I, O, R> {
-	fn enable_raw_mode(&mut self) -> io::Result<()> {
-		let fd = self.state.tty_fd;
-		
-		let current_mode: Termios = tcgetattr(fd)?;
-		let mut new_mode = current_mode.clone();
+/// Calls the function provided with each stdio file descriptor until it
+/// doesn't return a non-fatal error, returning the file descriptor that worked.
+fn try_with_stdio_fds<F, T>(f: F) -> Result<(T, BorrowedFd<'static>), Errno>
+where
+	F: Fn(BorrowedFd) -> rustix::io::Result<T>
+{
+	let stdin_fd: BorrowedFd<'static> = stdio::stdin();
 
-		self.state.raw_mode_enabled = RawModeEnabled::Enabled {
-			original_termios: current_mode,
-		};
-
-		self.assign_drop_fn("disable_raw_mode", |term| {
-			if let RawModeEnabled::Enabled { original_termios } = &term.state.raw_mode_enabled {
-				for _ in 0..2 {
-					match tcsetattr(term.state.tty_fd, OptionalActions::Flush, &original_termios) {
-						Ok(_) => break,
-						Err(_) => continue,
-					}
-				}
-			}
-		});
-
-		new_mode.make_raw();
-
-		tcsetattr(fd, OptionalActions::Flush, &new_mode)?;
-
-		Ok(())
+	// try calling `f(stdin_fd)` until it doesn't return a non-fatal error
+	match retry_on_nonfatal(|| f(stdin_fd)) {
+		Ok(success) => return Ok((success, stdin_fd)),
+		// the file descriptor was redirected to something other than a tty
+		// so we try the other stdio file descriptors
+		Err(Errno::NOTTY) | Err(Errno::BADF) => (),
+		Err(other) => return Err(other),
 	}
 
-	/// Disables raw mode early and removes the drop function that disables raw
-	/// mode, if any.
-	fn disable_raw_mode(&mut self) -> io::Result<()> {
+	let stdout_fd: BorrowedFd<'static> = stdio::stdout();
 
-		if let RawModeEnabled::Enabled { original_termios } = &self.state.raw_mode_enabled {
-			tcsetattr(self.state.tty_fd, OptionalActions::Flush, &original_termios)?;
-
-			self.remove_drop_fn("disable_raw_mode");
-
-			self.state.raw_mode_enabled = RawModeEnabled::Disabled;
-		}
-
-		Ok(())
+	// try calling `f(stdout_fd)` until it doesn't return a non-fatal error
+	match retry_on_nonfatal(|| f(stdout_fd)) {
+		Ok(success) => return Ok((success, stdout_fd)),
+		// the file descriptor was redirected to something other than a tty
+		// so we try the last stdio file descriptor: stderr
+		Err(Errno::NOTTY) | Err(Errno::BADF) => (),
+		Err(other) => return Err(other),
 	}
 
-	fn is_raw_mode_enabled(&self) -> bool {
-		self.state.raw_mode_enabled.is_enabled()
-	}
+	let stderr_fd = stdio::stderr();
+
+	retry_on_nonfatal(|| f(stderr_fd)).map(|success| (success, stderr_fd))
+}
+
+/// Enables raw mode for the terminal.
+///
+/// This returns a [`RawTerminal`] struct whose `Drop` implementation disables
+/// raw mode.
+///
+/// When raw mode is enabled:
+/// - Input is not echoed back to the user.
+/// - Input can be read byte-by-byte rather than only being sent when the
+///   user presses enter.
+/// - Prevents `Ctrl-C` from terminating the process and `Ctrl-Z` from
+///   suspending it. These are instead sent to the process.
+/// - Disables `Ctrl-S` which pauses transmission of data to the terminal
+///   and `Ctrl-Q` which continues transmission of data to the terminal [^1].
+///   These are instead sent to the program running.
+/// - Prevents carriage returns from stdin from being translated into
+///   newlines.
+/// - Prevents newlines (`\n`) written into stdout from being translated
+///   into a carriage return and a newline (`\r\n`).
+/// - Maybe more minor things depending on the terminal/OS.
+///
+/// [^1]: https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html#disable-ctrl-s-and-ctrl-q
+pub fn enable_raw_mode<'tty>() -> io::Result<RawTerminal<'tty>> {
+	let (old_mode, fd) = try_with_stdio_fds::<_, Termios>(|fd| tcgetattr(fd))?;
+
+	enable_raw_mode_with_fd_inner(old_mode, fd)
+}
+
+/// Enables raw mode with the given file descriptor.
+pub fn enable_raw_mode_with_fd<'tty>(fd: BorrowedFd<'tty>) -> io::Result<RawTerminal<'tty>> {
+	let old_mode = retry_on_nonfatal::<_, Termios>(|| tcgetattr(fd))?;
+
+	enable_raw_mode_with_fd_inner(old_mode, fd)
+}
+
+fn enable_raw_mode_with_fd_inner<'tty>(old_mode: Termios, fd: BorrowedFd<'tty>) -> io::Result<RawTerminal<'tty>> {
+	let mut raw_mode = old_mode.clone();
+	raw_mode.make_raw();
+
+	retry_on_nonfatal(|| tcsetattr(fd, OptionalActions::Now, &raw_mode))?;
+
+	Ok(RawTerminal::new(old_mode, fd))
+}
+
+/// Disables raw mode early and returns to canonical ('cooked') mode, the
+/// default mode.
+///
+/// In canonical mode:
+/// - When the user types something, it is echoed back to the user
+///   automatically.
+/// - Input is only sent when the user presses enter.
+/// - `Ctrl-C` terminates the process and `Ctrl-Z` pauses it.
+/// - `Ctrl-S` pauses transmission of data to the terminal until `Ctrl-Q`
+///   is pressed [^1].
+/// - When the user enters a carriage return, it gets translated into a
+///   newline.
+/// - When you write a newline (`\n`) into stdout, it gets translated into
+///   a CRLF (`\r\n`).
+/// - Maybe other minor things depending on the terminal/OS.
+///
+/// [^1]: <https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html#disable-ctrl-s-and-ctrl-q>
+pub fn disable_raw_mode(raw_terminal: RawTerminal) -> io::Result<()> {
+	// wrap `raw_terminal` in a `ManuallyDrop` to prevent `raw_terminal`'s
+	// destructor from running and disabling raw mode twice
+	let raw_terminal = ManuallyDrop::new(raw_terminal);
+
+	disable_raw_mode_inner(&raw_terminal)
+}
+
+fn disable_raw_mode_inner(raw_terminal: &RawTerminal) -> io::Result<()> {
+	Ok(retry_on_nonfatal(||
+		tcsetattr(
+			raw_terminal.fd,
+			OptionalActions::Flush,
+			&raw_terminal.original_termios
+		)
+	)?)
 }

@@ -23,7 +23,7 @@ use std::{
 
 use supaterm::{
 	Terminal,
-	raw::RawMode,
+	raw::enable_raw_mode,
 };
 
 fn main() -> Result<(), Box<dyn error::Error>> {
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 		// this should output 'World!' directly below 'Hello'
 		write!(term, "Hello\nWorld!\n\n")?;
 
-		term.enable_raw_mode()?;
+		let _raw_terminal = enable_raw_mode()?;
 
 		write!(term, "Raw mode is enabled now.\r\n\r\n")?;
 

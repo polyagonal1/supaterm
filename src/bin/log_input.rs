@@ -23,12 +23,12 @@ use std::{
 
 use supaterm::{
 	Terminal,
-	raw::RawMode,
+	raw::{enable_raw_mode},
 };
 
 fn main() -> Result<(), Box<dyn error::Error>> {
 	let mut term = Terminal::new();
-	term.enable_raw_mode()?;
+	enable_raw_mode()?;
 
 	loop {
 		let mut buf: [u8; 1] = [0; 1];

@@ -13,22 +13,22 @@ rustix = { version = "1", features = ["stdio", "termios"], optional = true }
 
 
 [features]
-full = ["raw_mode", "alternate_screen", "cursor_controls", "erase_functions"]
+full = ["raw_mode", "alternate_screen", "cursor_controls", "erase_functions", "drop_handling"]
 nightly = []
 
 drop_handling = ["indexmap"]
-raw_mode = ["drop_handling", "rustix"]
-window_size = ["rustix"]
+raw_mode = ["dep:rustix"]
+window_size = ["dep:rustix"]
 
-alternate_screen = ["itoa", "drop_handling"]
-cursor_controls = ["itoa"]
-erase_functions = ["itoa"]
+alternate_screen = []
+cursor_controls = ["dep:itoa"]
+erase_functions = ["dep:itoa"]
 
 
 
 [[example]]
 name = "alternate_screen"
-required-features = ["alternate_screen", "cursor_controls"]
+required-features = ["alternate_screen", "cursor_controls", "drop_handling"]
 
 [[example]]
 name = "hello_world"

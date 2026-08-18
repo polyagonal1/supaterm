@@ -15,7 +15,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
-mod state;
 
 use std::{
 	io::{self, Write, Read, StdinLock, StdoutLock},
@@ -24,8 +23,6 @@ use std::{
 
 #[cfg(feature = "drop_handling")]
 use indexmap::IndexMap;
-
-pub use state::TerminalState;
 
 /// Helper struct encapsulating standard I/O and terminal state
 /// 
@@ -40,11 +37,12 @@ pub struct Terminal<'tty, I = StdinLock<'tty>, O = StdoutLock<'tty>, R = ()> {
 	/// Optional user-defined resources that can be used in user-assigned drop 
 	/// functions, e.g. cursor position
 	pub resources: R,
-	
-	/// The current state of the terminal
-	pub state: TerminalState<'tty>,
+
 	#[cfg(feature = "drop_handling")]
 	drop_fns: IndexMap<&'static str, fn(&mut Self)>,
+
+	#[allow(unused)]
+	marker: &'tty (),
 }
 
 #[cfg(feature = "drop_handling")]
@@ -140,9 +138,9 @@ impl<'tty, I: Read, O: Write, R> Terminal<'tty, I, O, R> {
 			stdout,
 			stdin,
 			resources,
-			state: TerminalState::default(),
 			#[cfg(feature = "drop_handling")]
 			drop_fns: IndexMap::new(),
+			marker: &(),
 		}
 	}
 }
