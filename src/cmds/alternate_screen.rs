@@ -65,8 +65,8 @@ where
 	fn enter_alternate_screen(&mut self) -> io::Result<()> {
 		self.write_all(b"\x1b[?1049h")
 	}
-	
+
 	fn disable_alternate_screen(&mut self) -> io::Result<()> {
-		self.write_all(b"\x1b[1049l")
+		self.write_all(b"\x1b[?1049l")
 	}
 }
