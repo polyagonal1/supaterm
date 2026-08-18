@@ -20,29 +20,43 @@ use std::io::{self, Write};
 
 use super::{CSI, Writeable, write_all};
 
+/// Trait that allows the cursor to be moved more expressively by the program
+/// than it would be otherwise.
+///
+/// This trait is automatically implemented for any type implementing
+/// [`Write`].
 pub trait CursorControls {
+	/// Moves the cursor to the top-left corner of the screen.
 	fn go_to_home(&mut self) -> io::Result<()>;
 
+	/// Moves the cursor to the specified line and column.
 	fn go_to_pos(&mut self, line: u16, column: u16) -> io::Result<()>;
 
+	/// Moves the cursor `n` lines up.
 	fn move_up(&mut self, n: u16) -> io::Result<()>;
 
+	/// Moves the cursor `n` lines down.
 	fn move_down(&mut self, n: u16) -> io::Result<()>;
 
+	/// Moves the cursor `n` columns right.
 	fn move_right(&mut self, n: u16) -> io::Result<()>;
 
+	/// Moves the cursor `n` columns left.
 	fn move_left(&mut self, n: u16) -> io::Result<()>;
 
-	fn go_to_start_and_down(&mut self, n: u16) -> io::Result<()>;
+	/// Moves the cursor to the start of the `n`th line down from the cursor.
+	fn go_to_next_line(&mut self, n: u16) -> io::Result<()>;
 
-	fn go_to_start_and_up(&mut self, n: u16) -> io::Result<()>;
+	/// Moves the cursor to the start of the `n`th line up from the cursor.
+	fn go_to_prev_line(&mut self, n: u16) -> io::Result<()>;
 
+	/// Moves the cursor to the specified column.
 	fn go_to_column(&mut self, n: u16) -> io::Result<()>;
 }
 
-impl<'tty, I, O, R> CursorControls for crate::Terminal<'tty, I, O, R>
+impl<T> CursorControls for T
 where
-	Self: Write
+	T: Write
 {
 	fn go_to_home(&mut self) -> io::Result<()> {
 		self.write_all(b"\x1b[H")
@@ -53,9 +67,9 @@ where
 		write_all!(self,
 			CSI,
 			line,
-			b";",
+			b';',
 			column,
-			"H",
+			b'H',
 		);
 
 		Ok(())
@@ -66,7 +80,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"A",
+			b'A',
 		);
 
 		Ok(())
@@ -77,7 +91,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"B",
+			b'B',
 		);
 
 		Ok(())
@@ -88,7 +102,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"C",
+			b'C',
 		);
 
 		Ok(())
@@ -99,14 +113,14 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"D",
+			b'D',
 		);
 
 		Ok(())
 	}
 
 	/// Moves the cursor to the start of the line, then moves it `n` lines down
-	fn go_to_start_and_down(&mut self, n: u16) -> io::Result<()> {
+	fn go_to_next_line(&mut self, n: u16) -> io::Result<()> {
 		write_all!(self,
 			CSI,
 			n,
@@ -117,7 +131,7 @@ where
 	}
 
 	/// Moves the cursor to the start of the line, then moves it `n` lines up
-	fn go_to_start_and_up(&mut self, n: u16) -> io::Result<()> {
+	fn go_to_prev_line(&mut self, n: u16) -> io::Result<()> {
 		write_all!(self,
 			CSI,
 			n,
