@@ -19,13 +19,12 @@
 use std::{
 	time::Duration,
 	thread::sleep,
-	io::Write,
+	io::{self, Write},
 	error,
 };
 
 use supaterm::{
-	Terminal,
-	AlternateScreen,
+	EnterAlternateScreen,
 	CursorControls,
 };
 
@@ -35,15 +34,13 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 	sleep(Duration::from_secs(2));
 
 	{
-		let mut term = Terminal::new();
-		term.enter_alternate_screen()?;
-		term.assign_drop_fn("alternate_screen", |term| { let _ = term.disable_alternate_screen(); });
+		let mut stdout = io::stdout().lock().enter_alternate_screen()?;
 		// entering the alternate screen does not neccessarily place the cursor
 		// in the home position, so we move it there
-		term.go_to_home()?;
+		stdout.go_to_home()?;
 
-		writeln!(term, "We are now in the alternate screen.")?;
-		writeln!(term, "You should not be able to see anything other than these 2 sentences in the terminal.")?;
+		writeln!(stdout, "We are now in the alternate screen.")?;
+		writeln!(stdout, "You should not be able to see anything other than these 2 sentences in the terminal.")?;
 
 		sleep(Duration::from_secs(4));
 	}

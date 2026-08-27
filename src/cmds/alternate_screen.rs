@@ -16,57 +16,99 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-use std::io::{self, Write};
+use std::{
+	ops::{Deref, DerefMut},
+	mem::ManuallyDrop,
+	io::{self, Write},
+};
 
-use crate::Terminal;
+/// Wrapper around a writer which shows that the alternate screen is enabled
+/// whose `Drop` implementation disables the alternate screen.
+///
+/// This is created with [`EnterAlternateScreen::enter_alternate_screen`].
+///
+/// This struct also has implementations of `Deref<Target = W>` and `DerefMut`
+/// so any methods available on the inner writer are available directly on this
+/// struct as well.
+#[non_exhaustive]
+pub struct AlternateScreen<W: Write> {
+	pub writer: W,
+}
+
+/// Allows for methods on the inner writer taking `&self` as a receiver to be
+/// called directly on `AlternateScreen`: `self.method()`, rather than having
+/// to access the field: `self.writer.method()`.
+///
+/// ```rust
+/// use supaterm::{AlternateScreen, EnterAlternateScreen};
+/// use std::{io, os::fd::AsFd};
+///
+/// # fn main() -> io::Result<()> {
+/// let mut alternate_screen: AlternateScreen<io::Stdout> = io::stdout().enter_alternate_screen()?;
+///
+/// // AsFd is not implemented for `AlternateScreen` but it is for `StdoutLock`
+/// let fd = alternate_screen.as_fd();
+/// # Ok(())
+/// # }
+/// ```
+impl<W: Write> Deref for AlternateScreen<W> {
+	type Target = W;
+
+	fn deref(&self) -> &Self::Target {
+		&self.writer
+	}
+}
+
+impl<W: Write> DerefMut for AlternateScreen<W> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.writer
+	}
+}
+
+impl<W: Write> Drop for AlternateScreen<W> {
+	fn drop(&mut self) {
+		let _ = self.write_all(b"\x1b[?1049l");
+	}
+}
 
 /// Trait enabling the use of the alternate screen. It is implemented on
-/// [`Terminal`]. For an alternate screen trait that is implemented on any
-/// type implementing [`Write`].
-pub trait AlternateScreen: Write {
-	/// Enables the alternate screen.
+/// any type implementing [`Write`].
+pub trait EnterAlternateScreen: Write + Sized {
+	/// Enables the alternate screen, consuming `self` and returning an 
+	/// [`AlternateScreen`] struct containing `self` whose `Drop` 
+	/// implementation disables the alternate screen.
+	///
+	/// You can call this 
 	/// 
-	/// If using a [`Terminal`], it is recommended to assign a drop function 
-	/// to the terminal disabling the alternate screen on drop like so:
+	/// # Examples
+	/// 
 	/// ```rust
 	/// use std::io;
-	/// use supaterm::{Terminal, AlternateScreen};
+	/// use supaterm::{Terminal, EnterAlternateScreen, CursorControls};
 	/// 
 	/// # fn main() -> io::Result<()> {
 	/// 
-	/// let mut term = Terminal::new();
-	/// term.enter_alternate_screen()?;
-	/// 
-	/// // makes `term` disable the alternate screen on drop
-	/// term.assign_drop_fn("alternate_screen", |term| { term.disable_alternate_screen(); });
-	/// 
+	/// let mut stdout = io::stdout().lock().enter_alternate_screen()?;
+	/// stdout.go_to_home()?;
 	/// 
 	/// // do stuff in the alternate screen here
 	/// 
-	/// 
-	/// drop(term); // this calls `AlternateScreen::disable_alternate_screen`
+	/// drop(stdout); // this disables the alternate screen
 	/// 
 	/// println!("Hey it's back to normal now.");
 	/// 
 	/// # Ok(())
 	/// # }
 	/// ```
-	fn enter_alternate_screen(&mut self) -> io::Result<()>;
-	
-	/// Disables the alternate screen and removes the drop function to disable 
-	/// the alternate screen on `Self`'s `Drop` implementation.
-	fn disable_alternate_screen(&mut self) -> io::Result<()>;
+	fn enter_alternate_screen(self) -> io::Result<AlternateScreen<Self>>;
 }
 
-impl<'tty, I, O, R> AlternateScreen for Terminal<'tty, I, O, R>
-where
-	Self: Write
-{
-	fn enter_alternate_screen(&mut self) -> io::Result<()> {
-		self.write_all(b"\x1b[?1049h")
-	}
-
-	fn disable_alternate_screen(&mut self) -> io::Result<()> {
-		self.write_all(b"\x1b[?1049l")
+impl<W: Write> EnterAlternateScreen for W {
+	fn enter_alternate_screen(mut self) -> io::Result<AlternateScreen<Self>> {
+		self.write_all(b"\x1b[?1049h")?;
+		
+		Ok(AlternateScreen {
+			writer: self
+		})
 	}
 }

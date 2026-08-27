@@ -26,7 +26,7 @@ mod erase;
 #[cfg(feature = "cursor_controls")]
 pub use cursor::CursorControls;
 #[cfg(feature = "alternate_screen")]
-pub use alternate_screen::AlternateScreen;
+pub use alternate_screen::{AlternateScreen, EnterAlternateScreen};
 
 const CSI: &'static [u8] = b"\x1b[";
 
