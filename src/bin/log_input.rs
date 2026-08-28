@@ -17,30 +17,28 @@
 */
 
 use std::{
-	io::{Read, Write},
+	io::{self, Read, Write},
 	error,
 };
 
-use supaterm::{
-	Terminal,
-	raw::{enable_raw_mode},
-};
+use supaterm::raw::{enable_raw_mode};
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-	let mut term = Terminal::new();
+	let mut stdin = io::stdin().lock();
+	let mut stdout = io::stdout().lock();
 	let _ = enable_raw_mode()?;
 
 	loop {
 		let mut buf: [u8; 1] = [0; 1];
 
-		term.read(&mut buf)?;
+		stdin.read(&mut buf)?;
 
 		if buf[0] == b'!'  {
 			break;
 		} else if buf[0] != 0 {
 			let byte = buf[0];
-			write!(term, "{:<5} {byte:?}\r\n", byte.escape_ascii())?;
-			term.flush()?;
+			write!(stdout, "{:<5} {byte:?}\r\n", byte.escape_ascii())?;
+			stdout.flush()?;
 		}
 	}
 

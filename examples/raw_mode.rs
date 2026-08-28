@@ -18,28 +18,25 @@
 
 use std::{
 	error,
-	io::Write,
+	io::{self, Write},
 };
 
-use supaterm::{
-	Terminal,
-	raw::enable_raw_mode,
-};
+use supaterm::raw::enable_raw_mode;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
 	{
-		let mut term = Terminal::new();
+		let mut stdin = io::stdout().lock();
 
 		// this should output 'World!' directly below 'Hello'
-		write!(term, "Hello\nWorld!\n\n")?;
+		write!(stdin, "Hello\nWorld!\n\n")?;
 
 		let _raw_terminal = enable_raw_mode()?;
 
-		write!(term, "Raw mode is enabled now.\r\n\r\n")?;
+		write!(stdin, "Raw mode is enabled now.\r\n\r\n")?;
 
 		// this should output 'World!' diagonally below and to the right of
 		//  'Hello' because newlines are not translated into CRLFs
-		write!(term, "Hello\nWorld\r\n\r\n")?;
+		write!(stdin, "Hello\nWorld\r\n\r\n")?;
 	}
 
 	println!("And back to canonical mode.");

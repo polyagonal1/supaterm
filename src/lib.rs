@@ -26,7 +26,6 @@
 //! support at some point in the future.
 
 mod cmds;
-mod terminal;
 mod sys;
 #[cfg(feature = "raw_mode")]
 pub mod terminal_mode;
@@ -36,4 +35,3 @@ pub mod raw;
 pub mod winsize;
 
 pub use cmds::*;
-pub use terminal::Terminal;

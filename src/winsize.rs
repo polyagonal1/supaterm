@@ -16,21 +16,10 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-use rustix::{
-	fd::{BorrowedFd, AsFd},
-	termios::{Termios, tcgetwinsize, tcsetwinsize}
-};
-
 /// Trait for getting the size of the window in lines and columns.
 ///
 /// It is automatically implemented for any type implementing [``]
 pub trait GetWindowSize {
 	/// Gets the current size of the window in lines and columns.
 	fn get_window_size(&self) -> (u16, u16);
-}
-
-impl<'tty, I, O, R> GetWindowSize for crate::Terminal<'tty, I, O, R> {
-	fn get_window_size(&self) -> (u16, u16) {
-		todo!()
-	}
 }
