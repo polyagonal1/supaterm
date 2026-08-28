@@ -28,7 +28,7 @@ use supaterm::{
 
 fn main() -> Result<(), Box<dyn error::Error>> {
 	let mut term = Terminal::new();
-	enable_raw_mode()?;
+	let _ = enable_raw_mode()?;
 
 	loop {
 		let mut buf: [u8; 1] = [0; 1];

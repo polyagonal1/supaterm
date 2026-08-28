@@ -27,6 +27,9 @@
 
 mod cmds;
 mod terminal;
+mod sys;
+#[cfg(feature = "raw_mode")]
+pub mod terminal_mode;
 #[cfg(feature = "raw_mode")]
 pub mod raw;
 #[cfg(feature = "window_size")]
