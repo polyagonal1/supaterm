@@ -31,10 +31,6 @@ name = "alternate_screen"
 required-features = ["alternate_screen", "cursor_controls", "drop_handling"]
 
 [[example]]
-name = "hello_world"
-required-features = []
-
-[[example]]
 name = "raw_mode"
 required-features = ["raw_mode"]
 

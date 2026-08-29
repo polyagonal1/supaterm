@@ -118,7 +118,7 @@ impl TerminalMode {
 	/// file, attempting to set terminal mode on stdout would fail with the OS 
 	/// error code of `ENOTTY` (the fd was not a terminal). 
 	/// 
-	/// Since [`Terminal::get_current`] tries stdin, stdout, and stderr, this 
+	/// Since [`TerminalMode::get_current`] tries stdin, stdout, and stderr, this 
 	/// won't normally be an issue but if all of those are redirected to 
 	/// something other than a terminal and you have a different fd referencing 
 	/// a terminal that you want to use instead, or you want direct control 

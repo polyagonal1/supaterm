@@ -18,7 +18,6 @@
 
 use std::{
 	ops::{Deref, DerefMut},
-	mem::ManuallyDrop,
 	io::{self, Write},
 };
 

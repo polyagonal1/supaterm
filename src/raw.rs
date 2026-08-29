@@ -58,12 +58,11 @@
 //!   into a carriage return and a newline (`\r\n`).
 //! - Maybe more minor things depending on the terminal/OS.
 //!
-//! [^1]: https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html#disable-ctrl-s-and-ctrl-q
+//! [^1]: <https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html#disable-ctrl-s-and-ctrl-q>
 
 use std::{
 	io,
 	mem::ManuallyDrop,
-	os::fd::AsRawFd,
 };
 
 use rustix::fd::BorrowedFd;
@@ -91,7 +90,7 @@ pub use crate::terminal_mode::AccessModeError;
 ///
 /// ***Do not discard the returned `RawTerminal`. If you do, it will be dropped
 /// immediately and raw mode will be disabled sooner than you would like:***
-/// ```should-panic
+/// ```should_panic
 /// use supaterm::raw::enable_raw_mode;
 ///
 /// enable_raw_mode()?;
@@ -103,7 +102,7 @@ pub use crate::terminal_mode::AccessModeError;
 ///
 /// *Correct* usage:
 // TODO: make this example run in a container where the stdio fds point to a terminal
-/// ```no-run
+/// ```no_run
 /// # use std::io;
 /// # use rustix::{termios::isatty, stdio};
 /// use supaterm::raw::enable_raw_mode;
