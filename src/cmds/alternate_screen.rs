@@ -83,7 +83,7 @@ pub trait EnterAlternateScreen: Write + Sized {
 	/// 
 	/// ```rust
 	/// use std::io;
-	/// use supaterm::{Terminal, EnterAlternateScreen, CursorControls};
+	/// use supaterm::{EnterAlternateScreen, CursorControls};
 	/// 
 	/// # fn main() -> io::Result<()> {
 	/// 
