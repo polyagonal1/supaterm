@@ -90,30 +90,27 @@ pub use crate::terminal_mode::AccessModeError;
 ///
 /// ***Do not discard the returned `RawTerminal`. If you do, it will be dropped
 /// immediately and raw mode will be disabled sooner than you would like:***
-/// ```should_panic
+// TODO: add check for raw mode being enabled
+/// ```no_run
 /// use supaterm::raw::enable_raw_mode;
 ///
 /// enable_raw_mode()?;
 ///
 /// // raw mode will not be enabled
-///
-/// todo!("Add check for raw mode being enabled.")
+/// # Ok::<(), std::io::Error>(())
 /// ```
 ///
 /// *Correct* usage:
 // TODO: make this example run in a container where the stdio fds point to a terminal
 /// ```no_run
 /// # use std::io;
-/// # use rustix::{termios::isatty, stdio};
 /// use supaterm::raw::enable_raw_mode;
 ///
-/// fn main() -> io::Result<()> {
+/// let _raw_terminal = enable_raw_mode()?;
 ///
-///     let _raw_terminal = enable_raw_mode()?;
+/// // ... do stuff with raw mode enabled
 ///
-///     // ... do stuff with raw mode enabled
-///
-/// 	# Ok(())
+/// # Ok::<(), io::Error>(())
 /// } // the `RawTerminal` stored in the `_` is dropped and raw mode is disabled.
 /// ```
 pub fn enable_raw_mode<'tty>() -> Result<RawTerminal<'tty>, AccessModeError> {

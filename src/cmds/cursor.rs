@@ -20,16 +20,19 @@ use std::io::{self, Write};
 
 use super::{CSI, Writeable, write_all};
 
-/// Trait that allows the cursor to be moved more expressively by the program
-/// than it would be otherwise.
+/// Cursor movement.
 ///
-/// This trait is automatically implemented for any type implementing
-/// [`Write`].
+/// This trait has methods which allow the cursor to be moved more expressively
+/// by the program than it would be otherwise. It is automatically implemented
+/// for any type implementing [`Write`].
 pub trait CursorControls {
 	/// Moves the cursor to the top-left corner of the screen.
 	fn go_to_home(&mut self) -> io::Result<()>;
 
 	/// Moves the cursor to the specified line and column.
+	///
+	/// The `line` and `column` arguments are 0-based. This means a position of
+	/// (0, 0) is the top-left corner of the terminal.
 	fn go_to_pos(&mut self, line: u16, column: u16) -> io::Result<()>;
 
 	/// Moves the cursor `n` lines up.
@@ -54,6 +57,18 @@ pub trait CursorControls {
 	fn go_to_column(&mut self, n: u16) -> io::Result<()>;
 }
 
+/// Implement cursor movements for any writer
+///
+/// Internally, this implementation writes [ANSI escape codes] to the writer.
+/// Because of this, this will not actually move any cursor for non-tty
+/// writers, like [`Vec<T>`], just write the escape code.
+///
+/// Note: This implementation of `CursorControls` does not attempt to do any
+/// buffering so if you use these methods directly on a [`File`] for example,
+/// there will be at least one (but possibly more) system calls for each method
+/// call.
+///
+/// [ANSI escape codes]: <https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797>
 impl<T> CursorControls for T
 where
 	T: Write
@@ -150,5 +165,83 @@ where
 
 		Ok(())
 	}
+}
 
+#[cfg(test)]
+mod cursor_controls_tests {
+	use super::CursorControls;
+
+	use std::{
+		ascii::EscapeDefault,
+		slice::Iter,
+		io::{self, Write},
+	};
+
+	struct Escaper<'a> {
+		main_iter: Iter<'a, u8>,
+		byte_iter: Option<EscapeDefault>,
+	}
+
+	impl<'a> Iterator for Escaper<'a> {
+		type Item = char;
+
+		fn next(&mut self) -> Option<Self::Item> {
+			match &mut self.byte_iter {
+				Some(escape_default) => match escape_default.next() {
+					Some(byte) => return Some(byte as char),
+					// byte_iter is Some(empty_iter)
+					None => (),
+				},
+				// byte_iter is None
+				None => ()
+			}
+
+			match self.main_iter.next() {
+				Some(unescaped_byte) => {
+					self.byte_iter = Some(unescaped_byte.escape_ascii());
+
+					self.next()
+				},
+				None => None,
+			}
+		}
+	}
+
+	fn escape_buf(buf: &[u8]) -> String {
+		let escaper = Escaper {
+			main_iter: buf.iter(),
+			byte_iter: None,
+		};
+
+		escaper.collect()
+	}
+
+	#[test]
+	fn test_go_to_home() -> io::Result<()> {
+		let mut buf: Vec<u8> = Vec::new();
+
+		buf.go_to_home()?;
+
+		assert_eq!(buf, b"\x1b[H");
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_go_to_pos() -> io::Result<()> {
+		let mut buf: Vec<u8> = Vec::new();
+
+		buf.go_to_pos(0, 0)?;
+
+		buf.write_all(b"hello")?;
+
+		buf.go_to_pos(5, 2)?;
+
+		buf.write_all(b"world")?;
+
+		eprintln!("buf = {}", escape_buf(&*buf));
+		assert_eq!(buf, b"\x1b[1;1Hhello\x1b[6;3Hworld");
+
+		Ok(())
+	}
 }
