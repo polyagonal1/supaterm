@@ -62,36 +62,35 @@ where
 		self.write_all(b"\x1b[H")
 	}
 
-	/// Moves the cursor to the provided line and column
 	fn go_to_pos(&mut self, line: u16, column: u16) -> io::Result<()> {
+		// the actual escape code used for this is 1-based, not 0-based, so we
+		// have to add 1 to the values provided
 		write_all!(self,
 			CSI,
-			line,
-			b';',
-			column,
-			b'H',
+			line + 1,
+			b";",
+			column + 1,
+			b"H",
 		);
 
 		Ok(())
 	}
 
-	/// Moves the cursor up by `n` lines
 	fn move_up(&mut self, n: u16) -> io::Result<()> {
 		write_all!(self,
 			CSI,
 			n,
-			b'A',
+			b"A",
 		);
 
 		Ok(())
 	}
 
-	/// Moves the cursor down by `n` lines
 	fn move_down(&mut self, n: u16) -> io::Result<()> {
 		write_all!(self,
 			CSI,
 			n,
-			b'B',
+			b"B",
 		);
 
 		Ok(())
@@ -102,7 +101,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			b'C',
+			b"C",
 		);
 
 		Ok(())
@@ -113,7 +112,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			b'D',
+			b"D",
 		);
 
 		Ok(())
@@ -124,7 +123,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"E",
+			b"E",
 		);
 
 		Ok(())
@@ -135,7 +134,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"F"
+			b"F"
 		);
 
 		Ok(())
@@ -146,7 +145,7 @@ where
 		write_all!(self,
 			CSI,
 			n,
-			"G"
+			b"G"
 		);
 
 		Ok(())

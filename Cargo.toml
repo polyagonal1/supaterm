@@ -6,29 +6,27 @@ edition = "2024"
 
 
 [dependencies]
-itoa = { version = "1", optional = true }
-indexmap = { version = "2", features = ["std"], default-features = false, optional = true }
+lexical-core = { version = "1", features = ["write-integers", "std"], default-features = false, optional = true }
 rustix = { version = "1", features = ["stdio", "termios"], optional = true }
 
 
 
 [features]
-full = ["raw_mode", "alternate_screen", "cursor_controls", "erase_functions", "drop_handling"]
+full = ["raw_mode", "window_size", "alternate_screen", "cursor_controls", "erase_functions"]
 nightly = []
 
-drop_handling = ["indexmap"]
-raw_mode = ["dep:rustix"]
-window_size = ["dep:rustix"]
+raw_mode = ["rustix"]
+window_size = ["rustix"]
 
 alternate_screen = []
-cursor_controls = ["dep:itoa"]
-erase_functions = ["dep:itoa"]
+cursor_controls = ["lexical-core"]
+erase_functions = ["lexical-core"]
 
 
 
 [[example]]
 name = "alternate_screen"
-required-features = ["alternate_screen", "cursor_controls", "drop_handling"]
+required-features = ["alternate_screen", "cursor_controls"]
 
 [[example]]
 name = "raw_mode"

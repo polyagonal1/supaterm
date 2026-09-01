@@ -36,7 +36,7 @@ use writable::*;
 #[cfg(any(feature = "cursor_controls", feature = "alternate_screen", feature = "erase_functions"))]
 mod writable {
 	use std::io::{self, Write};
-	use itoa::{Buffer, Integer};
+	use lexical_core::FormattedSize;
 	
 	pub(super) trait Writeable {
 		fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()>;
@@ -56,12 +56,14 @@ mod writable {
 		}
 	}
 
-	impl<I: Integer> Writeable for I {
+	impl Writeable for u16 {
 		#[inline]
 		fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-			writer.write_all(
-				Buffer::new().format(*self).as_bytes()
-			)
+			let mut buf = [0u8; u16::FORMATTED_SIZE_DECIMAL];
+
+			let bytes = lexical_core::write(*self, &mut buf);
+
+			writer.write_all(&*bytes)
 		}
 	}
 
