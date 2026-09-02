@@ -4,7 +4,7 @@ version = "0.2.1"
 edition = "2024"
 
 [dependencies]
-lexical-core = { version = "1", features = ["write-integers", "std"], default-features = false, optional = true }
+lexical-core = { version = "1", features = ["write-integers", "std"], default-features = false }
 rustix = { version = "1", features = ["stdio", "termios"], optional = true }
 
 
@@ -17,9 +17,14 @@ raw_mode = ["rustix"]
 window_size = ["rustix"]
 
 alternate_screen = []
-cursor_controls = ["lexical-core"]
-erase_functions = ["lexical-core"]
+cursor_controls = []
 
+erase_in_display_ext = ["erase_in_display"]
+erase_in_line_ext = ["erase_in_line"]
+
+erase_in_display = ["erase_functions"]
+erase_in_line = ["erase_functions"]
+erase_functions = []
 
 
 [[example]]

@@ -21,7 +21,6 @@ mod cursor;
 #[cfg(feature = "alternate_screen")]
 mod alternate_screen;
 #[cfg(feature = "erase_functions")]
-mod erase;
 pub mod erase;
 
 #[cfg(feature = "cursor_controls")]
