@@ -1,5 +1,3 @@
-# Supaterm
-
 This is a low-level terminal manipulation library that aims to be simple to use 
 and ergonomic and fast. ('Low-level' meaning that it does not provide any sort 
 of TUI, just the commands used to make the TUI.)

@@ -1,5 +1,5 @@
 /*
-    supaterm – terminal manipulation library
+    chromoterm – terminal manipulation library
     Copyright (C) 2026  @polyagonal1
 
     This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ use std::{
 	error,
 };
 
-use supaterm::raw::{enable_raw_mode};
+use chromoterm::raw::{enable_raw_mode};
 
 fn main() -> Result<(), Box<dyn error::Error>> {
 	let mut stdin = io::stdin().lock();
