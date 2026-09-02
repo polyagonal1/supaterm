@@ -16,19 +16,21 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-use std::io;
+use std::io::{self, Write};
 
 /// Clear the display. 
 /// 
 /// This trait has functions which allow the terminal screen to be cleared 
-/// (erased). This is mainly useful when you're in the [alternate screen]. 
+/// (erased). It is implemented for any type implementing [Write]. This is
+/// mainly useful when you're in the [alternate screen], rather than the main
+/// screen.
 /// 
 /// For the purposes of this trait, 'display' means the terminal lines which 
 /// are currently being rendered, separate from the scrollback, which is what 
 /// is not currently being rendered. 
 /// 
 /// For erase functions only in the current line, see the [ClearInLine] trait. 
-/// 
+///
 /// [alternate screen]: crate::EnterAlternateScreen
 #[cfg(feature = "erase_in_display")]
 pub trait ClearInDisplay {
@@ -68,4 +70,38 @@ pub trait ClearInLine {
 	/// Clears from the start of the line the cursor is on to the cursor.
 	#[cfg(feature = "erase_in_line_ext")]
 	fn clear_from_line_start_to_cursor(&mut self) -> io::Result<()>;
+}
+
+#[cfg(feature = "erase_in_display")]
+impl<W: Write> ClearInDisplay for W {
+	fn clear_screen(&mut self) -> io::Result<()> {
+		self.write_all(b"\x1b[2J")
+	}
+
+	#[cfg(feature = "erase_in_display_ext")]
+	fn clear_from_cursor_to_end(&mut self) -> io::Result<()> {
+		self.write_all(b"\x1b[0J")
+	}
+
+	#[cfg(feature = "erase_in_display_ext")]
+	fn clear_from_start_to_cursor(&mut self) -> io::Result<()> {
+		self.write_all(b"\x1b[1J")
+	}
+}
+
+#[cfg(feature = "erase_in_line")]
+impl<W: Write> ClearInLine for W {
+	fn clear_line(&mut self) -> io::Result<()> {
+		self.write_all(b"\x1b[2K")
+	}
+
+	#[cfg(feature = "erase_in_line_ext")]
+	fn clear_from_cursor_to_line_end(&mut self) -> io::Result<()> {
+		self.write_all(b"\x1b[0K")
+	}
+
+	#[cfg(feature = "erase_in_line_ext")]
+	fn clear_from_line_start_to_cursor(&mut self) -> io::Result<()> {
+		self.write_all(b"\x1b[1K")
+	}
 }
