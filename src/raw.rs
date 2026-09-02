@@ -106,11 +106,13 @@ pub use crate::terminal_mode::AccessModeError;
 /// # use std::io;
 /// use supaterm::raw::enable_raw_mode;
 ///
+/// fn main() -> io::Result<()> {
+///
 /// let _raw_terminal = enable_raw_mode()?;
 ///
 /// // ... do stuff with raw mode enabled
 ///
-/// # Ok::<(), io::Error>(())
+/// # Ok(())
 /// } // the `RawTerminal` stored in the `_` is dropped and raw mode is disabled.
 /// ```
 pub fn enable_raw_mode<'tty>() -> Result<RawTerminal<'tty>, AccessModeError> {
