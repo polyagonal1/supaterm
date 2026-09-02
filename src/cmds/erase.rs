@@ -18,17 +18,17 @@
 
 use std::io;
 
-/// Clear the display.
-///
+/// Clear the display. 
+/// 
 /// This trait has functions which allow the terminal screen to be cleared 
 /// (erased). This is mainly useful when you're in the [alternate screen]. 
 /// 
 /// For the purposes of this trait, 'display' means the terminal lines which 
 /// are currently being rendered, separate from the scrollback, which is what 
 /// is not currently being rendered. 
-///
-/// For erase functions only in the current line, see the [ClearInLine] trait.
-///
+/// 
+/// For erase functions only in the current line, see the [ClearInLine] trait. 
+/// 
 /// [alternate screen]: crate::EnterAlternateScreen
 #[cfg(feature = "erase_in_display")]
 pub trait ClearInDisplay {
@@ -51,7 +51,7 @@ pub trait ClearInDisplay {
 	fn clear_from_start_to_cursor(&mut self) -> io::Result<()>;
 }
 
-/// Clear the line.
+/// Clear the line. 
 /// 
 /// This allows you to clear (erase) in the current line. This would be used in 
 /// things like loading bars when in the main screen when you don't want to 
