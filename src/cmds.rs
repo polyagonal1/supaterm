@@ -22,6 +22,7 @@ mod cursor;
 mod alternate_screen;
 #[cfg(feature = "erase_functions")]
 mod erase;
+pub mod erase;
 
 #[cfg(feature = "cursor_controls")]
 pub use cursor::CursorControls;
@@ -40,13 +41,6 @@ mod writable {
 	
 	pub(super) trait Writeable {
 		fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()>;
-	}
-
-	impl Writeable for str {
-		#[inline]
-		fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-			writer.write_all(self.as_bytes())
-		}
 	}
 
 	impl Writeable for [u8] {
