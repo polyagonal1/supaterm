@@ -27,6 +27,10 @@ use super::{CSI, Writeable, write_all};
 /// for any type implementing [`Write`].
 pub trait CursorControls {
 	/// Moves the cursor to the top-left corner of the screen.
+	///
+	/// This is the same as doing <code>[go_to_pos](0, 0)</code>.
+	///
+	/// [go_to_pos]: CursorControls::go_to_pos
 	fn go_to_home(&mut self) -> io::Result<()>;
 
 	/// Moves the cursor to the specified line and column.
