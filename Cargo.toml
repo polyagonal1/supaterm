@@ -10,7 +10,6 @@ rustix = { version = "1", features = ["stdio", "termios"], optional = true }
 
 
 [features]
-full = ["raw_mode", "window_size", "alternate_screen", "cursor_controls", "erase_functions"]
 nightly = []
 
 raw_mode = ["rustix"]
