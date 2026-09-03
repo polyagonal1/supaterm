@@ -170,6 +170,8 @@ impl<S: ScreenController> ScreenControllerGuard<S> {
 	/// let guard = ScreenControllerGuard::with_alternate_screen_enabled(stdout);
 	/// 
 	/// assert!(guard.is_alternate_screen_enabled());
+	/// 
+	/// # Ok::<(), io::Error>(())
 	/// ```
 	#[inline]
 	pub fn with_alternate_screen_enabled(inner: S) -> Self {

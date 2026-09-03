@@ -92,7 +92,7 @@ pub use crate::terminal_mode::AccessModeError;
 /// immediately and raw mode will be disabled sooner than you would like:***
 // TODO: add check for raw mode being enabled
 /// ```no_run
-/// use supaterm::raw::enable_raw_mode;
+/// use chromoterm::raw::enable_raw_mode;
 ///
 /// enable_raw_mode()?;
 ///
@@ -104,7 +104,7 @@ pub use crate::terminal_mode::AccessModeError;
 // TODO: make this example run in a container where the stdio fds point to a terminal
 /// ```no_run
 /// # use std::io;
-/// use supaterm::raw::enable_raw_mode;
+/// use chromoterm::raw::enable_raw_mode;
 ///
 /// fn main() -> io::Result<()> {
 ///
