@@ -77,7 +77,26 @@ pub struct RawTerminal<'tty> {
 
 impl<'tty> Drop for RawTerminal<'tty> {
 	fn drop(&mut self) {
-		let _ = disable_raw_mode_inner(&self);
+		let _ = self.disable_raw_mode_inner();
+	}
+}
+
+impl<'tty> RawTerminal<'tty> {
+	/// Disables raw mode early and returns to canonical ('cooked') mode, the
+	/// default mode.
+	///
+	/// You can also just drop the `raw_terminal` but this function provides error
+	/// values, which the `Drop` implementation for `RawTerminal` ignores.
+	pub fn disable_raw_mode(self) -> io::Result<()> {
+		// wrap `raw_terminal` in a `ManuallyDrop` to prevent `raw_terminal`'s
+		// destructor from running and disabling raw mode a second time
+		let raw_terminal = ManuallyDrop::new(self);
+
+		raw_terminal.disable_raw_mode_inner()
+	}
+
+	fn disable_raw_mode_inner(&self) -> io::Result<()> {
+		set_terminal_mode_of_fd(self.fd, &self.original_mode)
 	}
 }
 
@@ -106,15 +125,23 @@ pub use crate::terminal_mode::AccessModeError;
 /// # use std::io;
 /// use chromoterm::raw::enable_raw_mode;
 ///
-/// fn main() -> io::Result<()> {
-///
-/// let _raw_terminal = enable_raw_mode()?;
+/// let raw_terminal = enable_raw_mode()?;
 ///
 /// // ... do stuff with raw mode enabled
 ///
-/// # Ok(())
-/// } // the `RawTerminal` stored in the `_` is dropped and raw mode is disabled.
+/// // disable raw mode, consuming the `raw_terminal`
+/// raw_terminal.disable_raw_mode()?;
+///
+/// # Ok::<(), io::Error>(())
 /// ```
+///
+/// # Errors
+/// This function will error on the following conditions:
+/// - [`AccessModeError::CouldNotFindTty`] – stdin, stdout, and stderr were all
+///   not referring to a terminal, so raw mode could not be set for any of
+///   them.
+/// - [`AccessModeError::Other(io::Error)`] – Other error returned by the OS
+///   when trying to set raw mode.
 pub fn enable_raw_mode<'tty>() -> Result<RawTerminal<'tty>, AccessModeError> {
 	let (old_mode, fd) = TerminalMode::get_current()?;
 
@@ -141,23 +168,6 @@ fn enable_raw_mode_with_fd_inner<'tty>(fd: BorrowedFd<'tty>, original_mode: Term
 		original_mode,
 		fd,
 	})
-}
-
-/// Disables raw mode early and returns to canonical ('cooked') mode, the
-/// default mode.
-///
-/// You can also just drop the `raw_terminal` but this function provides error
-/// values, which the `Drop` implementation for `RawTerminal` ignores.
-pub fn disable_raw_mode(raw_terminal: RawTerminal) -> io::Result<()> {
-	// wrap `raw_terminal` in a `ManuallyDrop` to prevent `raw_terminal`'s
-	// destructor from running and disabling raw mode twice
-	let raw_terminal = ManuallyDrop::new(raw_terminal);
-
-	disable_raw_mode_inner(&raw_terminal)
-}
-
-fn disable_raw_mode_inner(raw_terminal: &RawTerminal) -> io::Result<()> {
-	set_terminal_mode_of_fd(raw_terminal.fd, &raw_terminal.original_mode)
 }
 
 // /// Attempts to infer whether raw mode is currently enabled
