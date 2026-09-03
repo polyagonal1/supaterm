@@ -16,31 +16,42 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-use std::{
-	io::{self, Read, Write},
-	error,
+use rustix::{
+	stdio,
+	io::Errno,
+	fd::BorrowedFd,
+	termios::isatty,
 };
 
-use chromoterm::raw::enable_raw_mode;
+pub const STDIN_FD: BorrowedFd<'static> = stdio::stdin();
+pub const STDOUT_FD: BorrowedFd<'static> = stdio::stdout();
+pub const STDERR_FD: BorrowedFd<'static> = stdio::stderr();
 
-fn main() -> Result<(), Box<dyn error::Error>> {
-	let mut stdin = io::stdin().lock();
-	let mut stdout = io::stdout().lock();
-	let _ = enable_raw_mode()?;
-
-	loop {
-		let mut buf: [u8; 1] = [0; 1];
-
-		stdin.read(&mut buf)?;
-
-		if buf[0] == b'!'  {
-			break;
-		} else if buf[0] != 0 {
-			let byte = buf[0];
-			write!(stdout, "{:<5} {byte:?}\r\n", byte.escape_ascii())?;
-			stdout.flush()?;
-		}
+pub fn try_get_tty_fd() -> Option<BorrowedFd<'static>> {
+	if isatty(STDIN_FD) {
+		return Some(STDIN_FD)
 	}
 
-	Ok(())
+	if isatty(STDOUT_FD) {
+		return Some(STDOUT_FD)
+	}
+
+	if isatty(STDERR_FD) {
+		return Some(STDERR_FD)
+	}
+
+	None
+}
+
+pub fn retry_on_nonfatal<F, T>(f: F) -> rustix::io::Result<T>
+where
+	F: Fn() -> rustix::io::Result<T>
+{
+	loop {
+		match f() {
+			Ok(r) => return Ok(r),
+			Err(Errno::INTR) | Err(Errno::AGAIN) => continue,
+			Err(other) => return Err(other)
+		}
+	}
 }

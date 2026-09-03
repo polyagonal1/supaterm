@@ -16,7 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
-//! Lower-level API than [`crate::raw`] which uses this API internally.
+//! Set terminal attributes and raw mode
 //! 
 //! Assuming a POSIX-like OS, a TTY (terminal) has *attributes*. These define 
 //! how the terminal behaves. There are also different categories of terminal 
@@ -29,8 +29,8 @@
 //! for more info.)
 //! 
 //! Certain combinations of these attributes make a terminal in 'raw mode'. The 
-//! affects of raw mode is documented in [`crate::raw`]. You can see 
-//! the exact flags setting raw mode sets and removes [here](cfmakeraw-impl).
+//! affects of raw mode is documented in [`raw`]. You can see the exact flags 
+//! setting raw mode sets and removes [here](cfmakeraw-impl).
 //! 
 //! Currently, this API does not allow for manually tuning these flags, but it 
 //! may be considered in the future.
@@ -39,81 +39,28 @@
 //! [c-termios]: <https://man7.org/linux/man-pages/man3/termios.3.html>
 //! [cfmakeraw-impl]: <https://man7.org/linux/man-pages/man3/termios.3.html#:~:text=termios_p-,CS8;>
 
+use rustix::{
+	fd::BorrowedFd,
+	termios::{OptionalActions, Termios, tcgetattr, tcsetattr},
+};
 use std::{
-	fmt,
 	io,
-	error,
 	os::fd::AsFd,
 };
-use rustix::{
-	io::Errno,
-	fd::BorrowedFd,
-	termios::{Termios, tcgetattr, tcsetattr, OptionalActions},
-};
 
-use crate::sys::{
-	retry_on_nonfatal,
-	try_get_tty_fd
-};
+use sys::{retry_on_nonfatal, try_get_tty_fd};
+
+mod sys;
+mod error;
+#[cfg(feature = "raw_mode")]
+pub mod raw;
+
+pub use error::AccessModeError;
 
 /// Terminal attributes. See [the module documentation][`self`] for more info.
 #[derive(Debug, Clone)]
 pub struct TerminalMode {
 	termios: Termios,
-}
-
-/// Wrapper around [`io::Error`] encoding the extra error condition: could not 
-/// find the file descriptor of the TTY
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum AccessModeError {
-	/// Stdin, stdout, and stderr were all not pointing to a TTY able to 
-	/// get/set attributes of.
-	CouldNotFindTty,
-	/// Other IO error.
-	Other(io::Error),
-}
-
-impl fmt::Display for AccessModeError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			AccessModeError::CouldNotFindTty => write!(f, "could not find the tty"),
-			AccessModeError::Other(io_error) => fmt::Display::fmt(io_error, f),
-		}
-	}
-}
-
-impl error::Error for AccessModeError {
-	fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-		match self {
-			AccessModeError::Other(io_error) => Some(io_error),
-			AccessModeError::CouldNotFindTty => None,
-		}
-	}
-}
-
-impl From<AccessModeError> for io::Error {
-	fn from(error: AccessModeError) -> Self {
-		match error {
-			AccessModeError::Other(io_error) => io_error,
-			AccessModeError::CouldNotFindTty => Errno::NOTTY.into()
-		}
-	}
-}
-
-impl From<io::Error> for AccessModeError {
-	fn from(io_error: io::Error) -> Self {
-		AccessModeError::Other(io_error)
-	}
-}
-
-impl From<Errno> for AccessModeError {
-	fn from(errno: Errno) -> Self {
-		match errno {
-			Errno::NOTTY | Errno::BADF => Self::CouldNotFindTty,
-			other => Self::Other(other.into()),
-		}
-	}
 }
 
 impl TerminalMode {
