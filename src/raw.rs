@@ -122,6 +122,9 @@ pub fn enable_raw_mode<'tty>() -> Result<RawTerminal<'tty>, AccessModeError> {
 }
 
 /// Enables raw mode with the given file descriptor.
+///
+/// ***Do not discard the returned [`RawTerminal`].*** See [`enable_raw_mode`] for
+/// more info.
 pub fn enable_raw_mode_with_fd<'tty>(fd: BorrowedFd<'tty>) -> io::Result<RawTerminal<'tty>> {
 	let old_mode = TerminalMode::get_mode_of_fd(fd)?;
 

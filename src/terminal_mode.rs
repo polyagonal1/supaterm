@@ -35,9 +35,9 @@
 //! Currently, this API does not allow for manually tuning these flags, but it 
 //! may be considered in the future.
 //! 
-//! [posix-termios]: https://pubs.opengroup.org/onlinepubs/9799919799/
-//! [c-termios]: https://man7.org/linux/man-pages/man3/termios.3.html
-//! [cfmakeraw-impl]: https://man7.org/linux/man-pages/man3/termios.3.html#:~:text=termios_p-,CS8;
+//! [posix-termios]: <https://pubs.opengroup.org/onlinepubs/9799919799/>
+//! [c-termios]: <https://man7.org/linux/man-pages/man3/termios.3.html>
+//! [cfmakeraw-impl]: <https://man7.org/linux/man-pages/man3/termios.3.html#:~:text=termios_p-,CS8;>
 
 use std::{
 	fmt,
