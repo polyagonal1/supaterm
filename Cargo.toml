@@ -16,7 +16,7 @@
 
 [package]
 name = "chromoterm"
-version = "0.5.0"
+version = "0.5.2"
 edition = "2024"
 description = "Terminal manipulation library with a focus on ergonomics in Rust"
 repository = "https://github.com/polyagonal1/chromoterm"
