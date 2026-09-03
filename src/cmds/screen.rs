@@ -88,6 +88,7 @@ impl<W: Write> ScreenController for W {
 /// This helps to ensure correctness in a program making use of the alternate
 /// screen and make sure that the alternate screen is disabled even when a
 /// panic occurs.
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct ScreenControllerGuard<S: ScreenController> {
 	inner: S,
 	alternate_screen_enabled: bool,
