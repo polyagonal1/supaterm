@@ -26,15 +26,16 @@ pub mod erase;
 #[cfg(feature = "cursor_controls")]
 pub use cursor::CursorControls;
 
-const CSI: &'static [u8] = b"\x1b[";
-
-#[cfg(any(feature = "cursor_controls", feature = "alternate_screen", feature = "erase_functions"))]
+#[cfg(feature = "cursor_controls")]
 use writable::*;
 
-#[cfg(any(feature = "cursor_controls", feature = "alternate_screen", feature = "erase_functions"))]
+#[cfg(feature = "cursor_controls")]
 mod writable {
 	use std::io::{self, Write};
 	use lexical_core::FormattedSize;
+
+	#[cfg(any(feature = "cursor_controls", feature = "erase_functions"))]
+	pub(super) const CSI: &'static [u8] = b"\x1b[";
 	
 	pub(super) trait Writeable {
 		fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()>;

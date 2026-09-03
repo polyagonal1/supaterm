@@ -140,8 +140,8 @@ pub use crate::terminal_mode::AccessModeError;
 /// - [`AccessModeError::CouldNotFindTty`] – stdin, stdout, and stderr were all
 ///   not referring to a terminal, so raw mode could not be set for any of
 ///   them.
-/// - [`AccessModeError::Other(io::Error)`] – Other error returned by the OS
-///   when trying to set raw mode.
+/// - [`AccessModeError::Other(io::Error)`][AccessModeError::Other] – Other
+///   error returned by the OS when trying to set raw mode.
 pub fn enable_raw_mode<'tty>() -> Result<RawTerminal<'tty>, AccessModeError> {
 	let (old_mode, fd) = TerminalMode::get_current()?;
 

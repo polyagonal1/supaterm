@@ -24,7 +24,6 @@ keywords = ["terminal", "cli"]
 categories = ["command-line-interface"]
 readme = "README.md"
 license = "GPL-3.0-or-later"
-license-file = "LICENSE"
 
 [dependencies]
 lexical-core = { version = "1", features = ["write-integers", "std"], default-features = false }
@@ -34,19 +33,20 @@ rustix = { version = "1", features = ["stdio", "termios"], optional = true }
 
 [features]
 nightly = []
+any_cmds = []
 
 raw_mode = ["rustix"]
 window_size = ["rustix"]
 
-alternate_screen = []
-cursor_controls = []
+alternate_screen = ["any_cmds"]
+cursor_controls = ["any_cmds"]
 
 erase_in_display_ext = ["erase_in_display"]
 erase_in_line_ext = ["erase_in_line"]
 
 erase_in_display = ["erase_functions"]
 erase_in_line = ["erase_functions"]
-erase_functions = []
+erase_functions = ["any_cmds"]
 
 
 [[example]]
