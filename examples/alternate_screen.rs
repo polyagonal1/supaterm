@@ -24,7 +24,7 @@ use std::{
 };
 
 use chromoterm::{
-	EnterAlternateScreen,
+	screen::{ScreenControllerGuard, ScreenController},
 	CursorControls,
 };
 
@@ -34,16 +34,22 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 	sleep(Duration::from_secs(2));
 
 	{
-		let mut stdout = io::stdout().lock().enter_alternate_screen()?;
+		let mut guard = ScreenControllerGuard::new(
+			io::stdout().lock()
+		);
+		
+		guard.enter_alternate_screen()?;
+		
 		// entering the alternate screen does not neccessarily place the cursor
 		// in the home position, so we move it there
-		stdout.go_to_home()?;
+		guard.go_to_home()?;
 
-		writeln!(stdout, "We are now in the alternate screen.")?;
-		writeln!(stdout, "You should not be able to see anything other than these 2 sentences in the terminal.")?;
+		writeln!(guard, "We are now in the alternate screen.")?;
+		writeln!(guard, "You should not be able to see anything other than these 2 sentences in the terminal.")?;
 
 		sleep(Duration::from_secs(4));
-	}
+		
+	} // `guard` is dropped here and we exit the alternate screen
 
 	println!("We have now exited the alternate screen");
 
