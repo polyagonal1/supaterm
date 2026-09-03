@@ -8,7 +8,8 @@ This means **minor version updates can be breaking and so can patches if they
 are minor enough**.
 
 ## License
-This software is licensed under the GNU GPLv3. See [license] for more information.
+This software is licensed under the GNU General Public License v3.0 or later. 
+See [license] for more information.
 
 [SemVer versioning]: https://semver.org
 [license]: https://github.com/polyagonal1/supaterm/blob/main/LICENSE
