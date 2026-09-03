@@ -31,7 +31,7 @@ use std::io::{self, Write};
 /// 
 /// For erase functions only in the current line, see the [ClearInLine] trait. 
 ///
-/// [alternate screen]: crate::EnterAlternateScreen
+/// [alternate screen]: crate::screen
 #[cfg(feature = "erase_in_display")]
 pub trait ClearInDisplay {
 	/// Clears the whole display. 

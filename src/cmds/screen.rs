@@ -120,14 +120,14 @@ impl<S: ScreenController> Deref for ScreenControllerGuard<S> {
 	
 	#[inline]
 	fn deref(&self) -> &Self::Target {
-		&self.inner
+		self.inner()
 	}
 }
 
 impl<S: ScreenController> DerefMut for ScreenControllerGuard<S> {
 	#[inline]
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.inner
+		self.inner_mut()
 	}
 }
 
@@ -188,12 +188,25 @@ impl<S: ScreenController> ScreenControllerGuard<S> {
 	/// [`ScreenController`].
 	/// 
 	/// Usually, you shouldn't need to access this function as 
-	/// [`ScreenControllerGuard`] implements [`Deref<Target = S>`][Deref] and 
-	/// [`DerefMut`], so any methods on the inner [`ScreenController`]
-	///
+	/// [`ScreenControllerGuard`] implements [`Deref<Target = S>`][Deref], so 
+	/// any methods on the inner [`ScreenController`] should be available 
+	/// directly on `self`. 
+	/// 
 	/// This function's mutable counterpart is [`Self::inner_mut`].
 	#[inline]
 	pub fn inner(&self) -> &S {
 		&self.inner
+	}
+	
+	/// Returns a mutable exclusive reference to the inner 
+	/// [`ScreenController`]. 
+	/// 
+	/// Usually, you shouldn't need to access this function as 
+	/// [`ScreenControllerGuard`] implements [`Deref<Target = S>`][Deref] and 
+	/// [`DerefMut`], so any methods on the inner [`ScreenController`] should 
+	/// be available directly on `self`.
+	#[inline]
+	pub fn inner_mut(&mut self) -> &mut S {
+		&mut self.inner
 	}
 }

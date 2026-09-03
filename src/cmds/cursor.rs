@@ -68,9 +68,9 @@ pub trait CursorControls {
 /// writers, like [`Vec<T>`], just write the escape code.
 ///
 /// Note: This implementation of `CursorControls` does not attempt to do any
-/// buffering so if you use these methods directly on a [`File`] for example,
-/// there will be at least one (but possibly more) system calls for each method
-/// call.
+/// buffering so if you use these methods directly on a [`File`][std::fs::File]
+/// for example, there will be at least one (but possibly more) system calls
+/// for each method call.
 ///
 /// [ANSI escape codes]: <https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797>
 impl<T> CursorControls for T
