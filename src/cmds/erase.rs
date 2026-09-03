@@ -16,12 +16,19 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>
 */
 
+//! Erase terminal cells
+//!
+//! This module provides 2 traits for dealing with erasure of the terminal
+//! screen:
+//! - [`ClearInDisplay`] – erase functions affecting the whole display.
+//! - [`ClearInLine`] – erase functions affecting just the current line.
+
 use std::io::{self, Write};
 
 /// Clear the display. 
 /// 
 /// This trait has functions which allow the terminal screen to be cleared 
-/// (erased). It is implemented for any type implementing [Write]. This is
+/// (erased). It is implemented for any type implementing [`Write`]. This is
 /// mainly useful when you're in the [alternate screen], rather than the main
 /// screen.
 /// 
@@ -29,7 +36,8 @@ use std::io::{self, Write};
 /// are currently being rendered, separate from the scrollback, which is what 
 /// is not currently being rendered. 
 /// 
-/// For erase functions only in the current line, see the [ClearInLine] trait. 
+/// For erase functions only in the current line, see the [`ClearInLine`]
+/// trait.
 ///
 /// [alternate screen]: crate::screen
 #[cfg(feature = "erase_in_display")]
@@ -47,8 +55,8 @@ pub trait ClearInDisplay {
 	
 	/// Clears from the start of the display to the cursor. 
 	/// 
-	/// Like [ClearInDisplay::clear_from_cursor_to_end], this does not normally 
-	/// clear scrollback when in the main screen.
+	/// Like [`ClearInDisplay::clear_from_cursor_to_end`], this does not
+	/// normally clear scrollback when in the main screen.
 	#[cfg(feature = "erase_in_display_ext")]
 	fn clear_from_start_to_cursor(&mut self) -> io::Result<()>;
 }
