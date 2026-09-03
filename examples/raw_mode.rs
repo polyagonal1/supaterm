@@ -25,19 +25,20 @@ use chromoterm::raw::enable_raw_mode;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
 	{
-		let mut stdin = io::stdout().lock();
+		let mut stdout = io::stdout().lock();
 
 		// this should output 'World!' directly below 'Hello'
-		write!(stdin, "Hello\nWorld!\n\n")?;
+		write!(stdout, "Hello\nWorld!\n\n")?;
 
 		let _raw_terminal = enable_raw_mode()?;
 
-		write!(stdin, "Raw mode is enabled now.\r\n\r\n")?;
+		write!(stdout, "Raw mode is enabled now.\r\n\r\n")?;
 
 		// this should output 'World!' diagonally below and to the right of
 		//  'Hello' because newlines are not translated into CRLFs
-		write!(stdin, "Hello\nWorld\r\n\r\n")?;
-	}
+		write!(stdout, "Hello\nWorld\r\n\r\n")?;
+
+	} // `_raw_terminal` gets dropped here and raw mode is disabled
 
 	println!("And back to canonical mode.");
 
